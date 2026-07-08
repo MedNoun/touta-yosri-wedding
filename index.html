@@ -461,17 +461,9 @@
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/MotionPathPlugin.min.js"></script>
   <script src="js/main.js"></script>
 
-  <!-- Vercel Web Analytics — ne se charge qu'une fois le site déployé
+  <!-- Vercel Web Analytics — powered by @vercel/analytics package
        (pensez à activer Analytics dans le dashboard du projet Vercel) -->
-  <script>
-    if (!['localhost', '127.0.0.1'].includes(location.hostname)) {
-      window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-      const va = document.createElement('script');
-      va.defer = true;
-      va.src = '/_vercel/insights/script.js';
-      document.head.appendChild(va);
-    }
-  </script>
+  <script src="js/analytics.bundle.js"></script>
 </body>
 
 </html>
