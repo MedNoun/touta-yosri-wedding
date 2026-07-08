@@ -1,0 +1,6 @@
+Déposez votre morceau dans ce dossier sous le nom exact :
+
+    music.mp3
+
+Format conseillé : MP3, < 3 Mo pour un chargement rapide.
+Le site le jouera en boucle après le premier tap sur l'overlay d'ouverture.
