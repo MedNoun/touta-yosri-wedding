@@ -659,11 +659,25 @@ function buildScenes() {
     master = null;
   }
 
-  // Pose neutre avant mesures/reconstruction
-  gsap.set(['#mascot-a', '#mascot-b'], { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 });
-  gsap.set(['#a-inner', '#b-inner'], { scaleX: 1, transformOrigin: '50% 50%' });
-  gsap.set(['#a-leg-l', '#a-leg-r', '#b-leg-l', '#b-leg-r'], { rotation: 0 });
-  gsap.set(['#a-arm-r', '#b-arm-l'], { rotation: 0 });
+  // Pose neutre avant mesures/reconstruction — après célébration on
+  // reset à la pose RSVP mesurée live plutôt qu'au hero : les mascottes
+  // sont déjà là (onComplete les y a calées), donc aucun saut visible.
+  const submitted = document.getElementById('rsvp-form').hidden;
+  const prepose = submitted ? rsvpPoses() : null;
+  if (prepose) {
+    gsap.set('#mascot-a', { x: prepose.a.x - base.a.x, y: prepose.a.y - base.a.y, scaleX: 1, scaleY: 1, rotation: 0 });
+    gsap.set('#mascot-b', { x: prepose.b.x - base.b.x, y: prepose.b.y - base.b.y, scaleX: 1, scaleY: 1, rotation: 0 });
+    gsap.set('#a-inner', { scaleX: 1, transformOrigin: '50% 50%' });
+    gsap.set('#b-inner', { scaleX: -1, transformOrigin: '50% 50%' });
+    gsap.set(['#a-leg-l', '#a-leg-r', '#b-leg-l', '#b-leg-r'], { rotation: 0 });
+    gsap.set('#a-arm-r', { rotation: prepose.armA, transformOrigin: '50% 12%' });
+    gsap.set('#b-arm-l', { rotation: prepose.armB, transformOrigin: '50% 12%' });
+  } else {
+    gsap.set(['#mascot-a', '#mascot-b'], { x: 0, y: 0, scaleX: 1, scaleY: 1, rotation: 0 });
+    gsap.set(['#a-inner', '#b-inner'], { scaleX: 1, transformOrigin: '50% 50%' });
+    gsap.set(['#a-leg-l', '#a-leg-r', '#b-leg-l', '#b-leg-r'], { rotation: 0 });
+    gsap.set(['#a-arm-r', '#b-arm-l'], { rotation: 0 });
+  }
 
   const required = ['#story-frame', '.schedule-card', '#map-frame'];
   if (required.some((s) => !document.querySelector(s))) return;
@@ -850,7 +864,6 @@ function buildScenes() {
   // reconstruction post-célébration — la carte rétrécie ayant son bord
   // haut bien plus bas — renverrait une mascotte en plein saut
   // (téléportation visible) alors que celebrate() vient de la poser.
-  const submitted = document.getElementById('rsvp-form').hidden;
   const rsvpTop = submitted ? pose.card.top - vh * 0.6 : pose.card.top;
   const tR = seq(F(rsvpTop - vh * 0.85));
   const tRmid = seq(F(rsvpTop - vh * 0.55));
