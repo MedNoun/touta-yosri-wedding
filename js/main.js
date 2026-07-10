@@ -8,6 +8,15 @@
 
 gsap.registerPlugin(ScrollTrigger, MotionPathPlugin);
 
+// LA cause du « glitch » sur mobile déployé : la barre d'adresse qui se
+// replie/déplie change innerHeight, et ScrollTrigger — via SON propre
+// écouteur de resize interne — rafraîchit tout seul, recalcule end:'max'
+// et remappe la progression du scrub en pleine scène (téléportation des
+// mascottes). Notre garde plus bas n'empêchait que NOTRE reconstruction,
+// pas celle de ScrollTrigger. Ce drapeau lui dit d'ignorer précisément
+// les resize « barre mobile » (hauteur seule sur écran tactile).
+ScrollTrigger.config({ ignoreMobileResize: true });
+
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const isMobile = () => window.matchMedia('(max-width: 640px)').matches;
 
@@ -40,6 +49,11 @@ function openInvitation() {
     wave('a');
     gsap.delayedCall(0.4, () => wave('b'));
   }
+
+  // Le déverrouillage du scroll fait (ré)apparaître la barre de
+  // défilement : la mise en page glisse de quelques pixels et toutes
+  // les poses mesurées sous verrou deviennent fausses — on remesure
+  scheduleBuild(200);
 }
 
 overlay.addEventListener('click', openInvitation);
@@ -208,6 +222,44 @@ function wave(p) {
       delay: 0.1,
     });
 }
+
+/* ---------- Compte à rebours (cadre du hero) ---------- */
+
+// 26 septembre 2026, 20h00, heure tunisienne (UTC+1 toute l'année)
+const WEDDING_DATE = new Date('2026-09-26T20:00:00+01:00');
+
+function startCountdown() {
+  const box = document.getElementById('hero-countdown');
+  if (!box) return;
+  const num = {
+    d: document.getElementById('cd-days'),
+    h: document.getElementById('cd-hours'),
+    m: document.getElementById('cd-mins'),
+    s: document.getElementById('cd-secs'),
+  };
+  const pad = (n) => String(n).padStart(2, '0');
+  let timer = null;
+
+  const tick = () => {
+    const left = WEDDING_DATE - Date.now();
+    if (left <= 0) {
+      box.innerHTML = '<span class="cd-done">C\'est le grand jour ! 🎉</span>';
+      if (timer) clearInterval(timer);
+      return;
+    }
+    num.d.textContent = String(Math.floor(left / 86400000));
+    num.h.textContent = pad(Math.floor(left / 3600000) % 24);
+    num.m.textContent = pad(Math.floor(left / 60000) % 60);
+    num.s.textContent = pad(Math.floor(left / 1000) % 60);
+  };
+
+  // Premier rendu immédiat : le cadre a sa taille définitive avant que
+  // les mascottes ne soient assises sur son bord bas
+  tick();
+  if (WEDDING_DATE - Date.now() > 0) timer = setInterval(tick, 1000);
+}
+
+startCountdown();
 
 /* ---------- Pose finale au RSVP (partagée scroll / célébration) ---------- */
 
@@ -381,12 +433,39 @@ function celebrate() {
   const legs = ['#a-leg-l', '#a-leg-r', '#b-leg-l', '#b-leg-r'];
   const both = ['#mascot-a', '#mascot-b'];
 
+  // Recadrage doux : pendant le glissé de repos, le viewport vient
+  // centrer la carte pour que l'invité voie le tableau final. Jamais
+  // bloquant : le moindre geste (molette, doigt, clavier) l'annule.
+  let autoScrollOK = true;
+  const cancelAutoScroll = () => { autoScrollOK = false; };
+  const gestures = ['wheel', 'touchstart', 'pointerdown', 'keydown'];
+  gestures.forEach((ev) => window.addEventListener(ev, cancelAutoScroll, { passive: true }));
+  const dropGestures = () => gestures.forEach((ev) => window.removeEventListener(ev, cancelAutoScroll));
+
+  // Position de scroll qui correspond EXACTEMENT à l'atterrissage : la carte
+  // au repos (gRect) centrée dans le viewport. C'est elle qui pilote — la
+  // reconstruction relira ce scroll et la chorégraphie (scène RSVP figée sur
+  // sa pose finale au-delà de tPoint) reposera les mascottes là même où le
+  // spectacle les laisse. « settling » : pendant le glissé la marge n'est pas
+  // encore rendue, on retranche delta pour viser la hauteur de page FINALE.
+  const landingScroll = (settling) => {
+    const vh = window.innerHeight;
+    const pageH = document.documentElement.scrollHeight - (settling ? delta : 0);
+    const maxY = Math.max(0, pageH - vh);
+    return gsap.utils.clamp(0, maxY, gRect.top + endH / 2 - vh / 2);
+  };
+
   const tl = gsap.timeline({
     onComplete: () => {
+      dropGestures();
       // Les valeurs inline valent alors leurs valeurs CSS : nettoyage sûr
       gsap.set(cardEl, { clearProps: 'height,marginTop,marginBottom' });
       celebrating = false;
-      scheduleBuild(150);
+      // On cale le scroll sur l'atterrissage AVANT de reconstruire : ainsi
+      // master.progress(scroll) retombe pile sur la pose finale, aucun saut.
+      // (Si l'invité a repris la main entre-temps, on respecte sa position.)
+      if (autoScrollOK) window.scrollTo({ top: landingScroll(false), behavior: 'instant' });
+      scheduleBuild(120);
     },
   });
 
@@ -484,6 +563,29 @@ function celebrate() {
       .to('#mascot-b', { y: bRest.y, duration: 0.55, ease: 'power2.inOut' }, 2.95);
   }
 
+  // Le recadrage accompagne le glissé : cible calculée sur la carte au
+  // repos (gRect), création paresseuse pour partir du scroll du moment.
+  // behavior:'instant' à chaque tick — sans lui, le scroll-behavior:smooth
+  // du CSS lisserait chaque pas et transformerait le tween en bouillie.
+  tl.add(() => {
+    if (!autoScrollOK) return; // l'invité a déjà repris la main
+    const target = landingScroll(true); // marge pas encore rendue → settling
+    if (Math.abs(target - window.scrollY) < 30) return; // déjà bien cadré
+    const pos = { y: window.scrollY };
+    gsap.to(pos, {
+      y: target,
+      duration: 0.9,
+      ease: 'power2.inOut',
+      onUpdate() {
+        if (!autoScrollOK) {
+          this.kill();
+          return;
+        }
+        window.scrollTo({ top: pos.y, behavior: 'instant' });
+      },
+    });
+  }, 2.95);
+
   tl
     // applaudissements + petits sauts de joie
     .to(['#a-arm-l', '#b-arm-l'], { rotation: -50, transformOrigin: '50% 12%', duration: 0.11, yoyo: true, repeat: 7, ease: 'sine.inOut' }, 3.55)
@@ -494,9 +596,16 @@ function celebrate() {
   // (chute verticale sur mobile : elles atterrissent sur leur perchoir)
   const hop = (el, from, to, at) => {
     if (Math.abs(to.x - from.x) < 4 && Math.abs(to.y - from.y) < 4) return;
+    // Même garde-fou que jump() : pour un grand saut, un pic calé sur le
+    // point haut ferait une épingle que la courbe compenserait par un
+    // débordement latéral (le groom qui part sur le côté). On mélange donc
+    // le pic vers le milieu à mesure que le saut s'allonge.
+    const span = Math.hypot(to.x - from.x, to.y - from.y);
+    const blend = gsap.utils.clamp(0, 1, span / 500);
+    const ctrlY = gsap.utils.interpolate(Math.min(from.y, to.y) - 45, (from.y + to.y) / 2 - 45, blend);
     tl.to(el, {
       motionPath: {
-        path: [{ x: (from.x + to.x) / 2, y: Math.min(from.y, to.y) - 45 }, to],
+        path: [{ x: (from.x + to.x) / 2, y: ctrlY }, to],
         curviness: 1.2,
       },
       duration: 0.4,
@@ -623,10 +732,24 @@ function buildScenes() {
   const jump = (m, to, at, dur, opts = {}) => {
     dur = D(dur);
     if (to.x !== m.pos.x) flip(m, to.x < m.pos.x ? -1 : 1, at);
+    // Point de contrôle de l'arc. Pour un petit saut, on cale le pic
+    // juste au-dessus du point le plus haut : bel arc « par-dessus ».
+    // Pour un GRAND saut (ex. de la galerie à la 1re carte, ~2300 px),
+    // ce pic près du sommet crée une épingle à cheveux que la courbe
+    // MotionPath compense par un débordement latéral de ~300 px hors
+    // écran, puis retour — LE « glitch » (Yosri part à droite et revient).
+    // On rapproche donc le pic du milieu à mesure que le saut s'allonge :
+    // les hops courts gardent leur arc, les longs descendent droit, sans
+    // épingle ni écart latéral.
+    const span = Math.hypot(to.x - m.pos.x, to.y - m.pos.y);
+    const blend = gsap.utils.clamp(0, 1, span / 500);
+    const peakY = Math.min(m.pos.y, to.y) - JUMP;   // arc au-dessus (courts)
+    const midY = (m.pos.y + to.y) / 2 - JUMP;        // pas d'épingle (longs)
+    const ctrlY = gsap.utils.interpolate(peakY, midY, blend);
     master.to(m.el, {
       motionPath: {
         path: [
-          { x: (m.pos.x + to.x) / 2, y: Math.min(m.pos.y, to.y) - JUMP },
+          { x: (m.pos.x + to.x) / 2, y: ctrlY },
           { x: to.x, y: to.y },
         ],
         curviness: 1.3,
@@ -766,6 +889,7 @@ function scheduleBuild(delay = 120) {
       const smoothing = typeof st.getTween === 'function' ? st.getTween() : null;
       if (smoothing) smoothing.progress(1);
     }
+
   }, delay);
 }
 
@@ -781,4 +905,21 @@ if (document.fonts && document.fonts.ready) {
   document.fonts.ready.then(() => scheduleBuild());
 }
 
-window.addEventListener('resize', () => scheduleBuild(250));
+// Sur téléphone, la barre d'adresse qui se replie/déplie au fil du scroll
+// déclenche des resize « hauteur seule » : innerHeight change mais pas la
+// page (100vh reste calé sur le grand viewport). Reconstruire remapperait
+// alors la progression du scrub et téléporterait les mascottes en pleine
+// scène — le « glitch » observé sur le site déployé. On ne reconstruit
+// que si la largeur change ou si la hauteur varie franchement (rotation,
+// clavier, vraie fenêtre redimensionnée) ; lastVh n'est mis à jour qu'à
+// la reconstruction pour que les petites variations ne s'accumulent pas.
+let lastVw = window.innerWidth;
+let lastVh = window.innerHeight;
+window.addEventListener('resize', () => {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  if (vw === lastVw && Math.abs(vh - lastVh) < 150) return;
+  lastVw = vw;
+  lastVh = vh;
+  scheduleBuild(250);
+});
