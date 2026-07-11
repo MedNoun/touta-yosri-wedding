@@ -2,7 +2,7 @@
 
 Single-page wedding invitation. Vanilla HTML/CSS/JS + GSAP (ScrollTrigger & MotionPathPlugin via CDN). No frameworks, no build step.
 
-**Date:** 26/09/2026 · **Venue:** MIMOSA (outdoor, Mediterranean) · **Guests arrive:** 8:00 PM, dinner 9:00 PM · **Palette (bride's brief):** soft ivory / natural linen / sage / olive / candlelight gold · **Fonts:** Pacifico + Nunito
+**Date:** 26/09/2026 · **Venue:** MIMOSA (outdoor, Mediterranean) · **Guests arrive:** 8:00 PM, dinner 9:00 PM · **Palette (bride's brief):** soft ivory / natural linen / sage / olive / candlelight gold · **Fonts:** Young Serif (names & titles) + Nunito (body) + Pixelify Sans (countdown, times, years — the "game HUD" voice)
 
 The design follows the bride's reception brief: intimate outdoor evening (~220 close guests), earthy Mediterranean palette, candlelight warmth, live voice + violin, and a floating-lantern release as the finale — echoed by the pixel lanterns rising in the night-sky footer.
 

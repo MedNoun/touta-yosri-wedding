@@ -27,13 +27,11 @@ const audio = document.getElementById('bg-music');
 const musicBtn = document.getElementById('music-toggle');
 
 function updateMusicUI() {
+  if (!audio || !musicBtn) return;
   const playing = !audio.paused && !audio.muted;
   musicBtn.classList.toggle('is-playing', playing);
   musicBtn.setAttribute('aria-pressed', String(playing));
 }
-
-audio.addEventListener('play', updateMusicUI);
-audio.addEventListener('pause', updateMusicUI);
 
 function openInvitation() {
   if (!overlay || overlay.classList.contains('is-open')) return;
@@ -41,9 +39,11 @@ function openInvitation() {
   document.body.classList.remove('locked');
   setTimeout(() => overlay.remove(), 800);
 
-  audio.volume = 0.55;
-  // La lecture ne peut démarrer que sur un geste utilisateur (iOS Safari inclus)
-  audio.play().then(updateMusicUI).catch(updateMusicUI);
+  if (audio) {
+    audio.volume = 0.55;
+    // La lecture ne peut démarrer que sur un geste utilisateur (iOS Safari inclus)
+    audio.play().then(updateMusicUI).catch(updateMusicUI);
+  }
 
   if (!reducedMotion) {
     wave('a');
@@ -56,20 +56,38 @@ function openInvitation() {
   scheduleBuild(200);
 }
 
-overlay.addEventListener('click', openInvitation);
-overlay.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' || e.key === ' ') openInvitation();
-});
+// Chaque bloc est gardé : si un élément manque (variante de la page,
+// test), le script continue — sans garde, le TypeError au premier
+// addEventListener tuerait TOUT (musique, compte à rebours, mascottes,
+// envoi du RSVP).
+if (overlay) {
+  overlay.addEventListener('click', openInvitation);
+  overlay.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      // Sans preventDefault, l'espace qui ouvre l'invitation fait
+      // aussi défiler la page à peine déverrouillée
+      e.preventDefault();
+      openInvitation();
+    }
+  });
+} else {
+  document.body.classList.remove('locked');
+}
 
-musicBtn.addEventListener('click', () => {
-  if (audio.paused) {
-    audio.muted = false;
-    audio.play().catch(() => { });
-  } else {
-    audio.pause();
-  }
-  updateMusicUI();
-});
+if (audio && musicBtn) {
+  audio.addEventListener('play', updateMusicUI);
+  audio.addEventListener('pause', updateMusicUI);
+
+  musicBtn.addEventListener('click', () => {
+    if (audio.paused) {
+      audio.muted = false;
+      audio.play().catch(() => { });
+    } else {
+      audio.pause();
+    }
+    updateMusicUI();
+  });
+}
 
 /* ---------- RSVP : formulaire intégré → Google Form ----------
    Les réponses tombent dans votre Google Sheet sans que l'invité
@@ -169,6 +187,7 @@ function placeHeroMascots() {
   base.b = { x: r.left + r.width * 0.64, y: r.top + r.height - h * MASCOTS.b.seat };
   for (const k of ['a', 'b']) {
     const el = document.querySelector(MASCOTS[k].el);
+    if (!el) continue;
     el.style.left = base[k].x + 'px';
     el.style.top = base[k].y + 'px';
     el.classList.add('is-placed');
@@ -378,7 +397,13 @@ function celebrate() {
     master.kill();
     master = null;
   }
-  gsap.killTweensOf(['#mascot-a', '#mascot-b']);
+  // Tue aussi les tweens des membres : un coucou (wave) encore en vol
+  // écrirait sur les bras en même temps que le moulinet du crash
+  gsap.killTweensOf([
+    '#mascot-a', '#mascot-b',
+    '#a-arm-l', '#a-arm-r', '#b-arm-l', '#b-arm-r',
+    '#a-leg-l', '#a-leg-r', '#b-leg-l', '#b-leg-r',
+  ]);
   // Ceinture et bretelles : on les refixe exactement où elles étaient
   gsap.set('#mascot-a', { x: cur.a.x, y: cur.a.y });
   gsap.set('#mascot-b', { x: cur.b.x, y: cur.b.y });
@@ -662,7 +687,8 @@ function buildScenes() {
   // Pose neutre avant mesures/reconstruction — après célébration on
   // reset à la pose RSVP mesurée live plutôt qu'au hero : les mascottes
   // sont déjà là (onComplete les y a calées), donc aucun saut visible.
-  const submitted = document.getElementById('rsvp-form').hidden;
+  const formEl = document.getElementById('rsvp-form');
+  const submitted = formEl ? formEl.hidden : false;
   const prepose = submitted ? rsvpPoses() : null;
   if (prepose) {
     gsap.set('#mascot-a', { x: prepose.a.x - base.a.x, y: prepose.a.y - base.a.y, scaleX: 1, scaleY: 1, rotation: 0 });
