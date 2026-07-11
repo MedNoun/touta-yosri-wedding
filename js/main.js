@@ -490,7 +490,6 @@ function celebrate() {
       // master.progress(scroll) retombe pile sur la pose finale, aucun saut.
       // (Si l'invité a repris la main entre-temps, on respecte sa position.)
       if (autoScrollOK) window.scrollTo({ top: landingScroll(false), behavior: 'instant' });
-      scheduleBuild(120);
     },
   });
 
