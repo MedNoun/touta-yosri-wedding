@@ -6,37 +6,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Eya &amp; Yosri — 26.09.2026</title>
   <meta name="description"
-    content="Eya & Yosri se marient le 26 septembre 2026 à MIMOSA — une soirée méditerranéenne sous les lanternes.">
+    content="Eya & Yosri se marient le 26 septembre 2026 à l'Espace Mimosa — une soirée méditerranéenne sous les oliviers et les lanternes.">
+  <meta property="og:title" content="Eya & Yosri — 26 septembre 2026">
+  <meta property="og:description" content="Une soirée méditerranéenne sous les oliviers et les lanternes. Vous êtes invités.">
+  <meta property="og:image" content="assets/photos/photo-3.jpg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Pixelify+Sans:wght@400;600;700&family=Nunito:wght@400;600;700;800&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Marcellus&family=Mulish:wght@300;400;600;700&display=swap"
     rel="stylesheet">
+  <link rel="preload" as="image" href="assets/web/olive-wreath.png">
+  <link rel="preload" as="image" href="assets/web/olive-garland.png">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 
 <body class="locked">
 
-  <!-- ============ Overlay d'ouverture (déclenche la musique) ============ -->
+  <!-- Le ciel de la soirée : sa couleur suit le défilement (js/main.js) -->
+  <div id="dusk" aria-hidden="true"></div>
+  <div id="grain" aria-hidden="true"></div>
+
+  <!-- ============ Ouverture : le carton d'invitation (déclenche la musique) ============ -->
   <div id="overlay" class="overlay" role="button" tabindex="0" aria-label="Ouvrir l'invitation">
-    <div class="overlay-card">
-      <!-- Enveloppe pixel, dessinée dans le style des mascottes -->
-      <div class="overlay-envelope" aria-hidden="true">
-        <svg viewBox="0 0 32 24" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
-          <rect x="2" y="4" width="28" height="16" fill="#F3DFA8" />
-          <rect x="2" y="4" width="28" height="2" fill="#E0C173" />
-          <rect x="4" y="6" width="24" height="2" fill="#E0C173" />
-          <rect x="8" y="8" width="16" height="2" fill="#E0C173" />
-          <rect x="12" y="10" width="8" height="2" fill="#E0C173" />
-          <rect x="2" y="18" width="28" height="2" fill="#C9A24B" />
-          <rect x="13" y="11" width="2" height="2" fill="#A93B2A" />
-          <rect x="17" y="11" width="2" height="2" fill="#A93B2A" />
-          <rect x="13" y="13" width="6" height="2" fill="#A93B2A" />
-          <rect x="15" y="15" width="2" height="1" fill="#A93B2A" />
-        </svg>
-      </div>
-      <h2 class="overlay-title">Vous êtes invités</h2>
-      <p class="overlay-hint">touchez pour ouvrir</p>
+    <div class="overlay-inner">
+      <img class="overlay-wreath" src="assets/web/olive-wreath.png" alt="" aria-hidden="true">
+      <p class="overlay-kicker">Samedi 26 septembre 2026</p>
+      <h2 class="overlay-names">Eya <span class="amp">&amp;</span> Yosri</h2>
+      <p class="overlay-title">Vous êtes invités</p>
+      <p class="overlay-hint">Toucher pour ouvrir l'invitation</p>
     </div>
   </div>
 
@@ -47,428 +44,271 @@
     <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>
   </button>
 
-  <!-- ============ Calque des mascottes (au-dessus du contenu) ============ -->
-  <div id="mascot-layer" aria-hidden="true">
-
-    <!-- Mascotte A : Eya — hijab champagne, lunettes rouges relevées, robe champagne, bouquet -->
-    <svg id="mascot-a" class="mascot" viewBox="0 0 96 110" xmlns="http://www.w3.org/2000/svg"
-      shape-rendering="crispEdges">
-      <g id="a-inner">
-
-        <!-- Jambes -->
-        <g id="a-leg-l">
-          <rect x="38" y="88" width="8" height="18" fill="#F2C79B" />
-          <rect x="34" y="100" width="12" height="6" fill="#C9A24B" />
-        </g>
-        <g id="a-leg-r">
-          <rect x="50" y="88" width="8" height="18" fill="#F2C79B" />
-          <rect x="50" y="100" width="12" height="6" fill="#C9A24B" />
-        </g>
-
-        <!-- Robe champagne satinée (col haut + large ceinture + jupe en escalier) -->
-        <g id="a-body">
-          <rect x="36" y="44" width="24" height="18" fill="#F8EFDE" />
-          <rect x="32" y="60" width="32" height="10" fill="#F8EFDE" />
-          <rect x="28" y="68" width="40" height="12" fill="#F8EFDE" />
-          <rect x="24" y="78" width="48" height="14" fill="#F8EFDE" />
-          <rect x="24" y="88" width="48" height="4" fill="#E8D7B8" />
-          <rect x="36" y="54" width="24" height="8" fill="#E5D2AF" />
-        </g>
-
-        <!-- Bras : manches bouffantes ; bouquet dans la main gauche -->
-        <g id="a-arm-l">
-          <rect x="26" y="44" width="10" height="14" fill="#F8EFDE" />
-          <rect x="28" y="58" width="8" height="12" fill="#F2C79B" />
-          <g id="a-bouquet">
-            <rect x="29" y="52" width="4" height="12" fill="#7E9370" />
-            <rect x="21" y="44" width="8" height="8" fill="#D9822B" />
-            <rect x="23" y="46" width="4" height="4" fill="#B4611F" />
-            <rect x="29" y="42" width="8" height="8" fill="#FFFFFF" />
-            <rect x="31" y="44" width="4" height="4" fill="#E4A184" />
-            <rect x="17" y="52" width="4" height="4" fill="#FFFFFF" />
-            <rect x="25" y="38" width="4" height="4" fill="#FFFFFF" />
-            <rect x="17" y="46" width="4" height="4" fill="#9CAF88" />
-            <rect x="33" y="50" width="4" height="4" fill="#9CAF88" />
-          </g>
-        </g>
-        <g id="a-arm-r">
-          <rect x="60" y="44" width="10" height="14" fill="#F8EFDE" />
-          <rect x="60" y="58" width="8" height="12" fill="#F2C79B" />
-        </g>
-
-        <!-- Tête + hijab champagne avec chignon noué sur le côté -->
-        <g id="a-head">
-          <rect x="28" y="8" width="40" height="36" fill="#F2C79B" />
-          <g id="a-hijab">
-            <rect x="26" y="4" width="44" height="12" fill="#EFDDBE" />
-            <rect x="26" y="16" width="6" height="16" fill="#EFDDBE" />
-            <rect x="64" y="16" width="6" height="14" fill="#EFDDBE" />
-            <rect x="30" y="14" width="36" height="2" fill="#E2CBA4" />
-            <rect x="66" y="12" width="12" height="14" fill="#EFDDBE" />
-            <rect x="69" y="15" width="6" height="7" fill="#E2CBA4" />
-            <rect x="70" y="17" width="4" height="3" fill="#D4BE97" />
-          </g>
-          <g id="a-eyes">
-            <rect x="36" y="26" width="4" height="5" fill="#FFFFFF" />
-            <rect x="40" y="26" width="4" height="5" fill="#3D2F26" />
-            <rect x="52" y="26" width="4" height="5" fill="#3D2F26" />
-            <rect x="56" y="26" width="4" height="5" fill="#FFFFFF" />
-          </g>
-          <rect x="32" y="32" width="5" height="4" fill="#E8A18B" opacity="0.8" />
-          <rect x="59" y="32" width="5" height="4" fill="#E8A18B" opacity="0.8" />
-          <g id="a-mouth" fill="#B4614C">
-            <rect x="42" y="34" width="3" height="3" />
-            <rect x="51" y="34" width="3" height="3" />
-            <rect x="45" y="36" width="6" height="3" />
-          </g>
-          <!-- Lunettes de soleil rouges relevées sur le hijab -->
-          <g id="a-shades">
-            <rect x="37" y="6" width="9" height="6" fill="#A93B2A" />
-            <rect x="50" y="6" width="9" height="6" fill="#A93B2A" />
-            <rect x="39" y="8" width="5" height="4" fill="#6E1F12" />
-            <rect x="52" y="8" width="5" height="4" fill="#6E1F12" />
-            <rect x="46" y="7" width="4" height="3" fill="#A93B2A" />
-          </g>
-        </g>
-
-      </g>
-    </svg>
-
-    <!-- Mascotte B : Yosri — costume lin beige, barbe, lunettes relevées, baskets blanches -->
-    <svg id="mascot-b" class="mascot" viewBox="0 0 96 104" xmlns="http://www.w3.org/2000/svg"
-      shape-rendering="crispEdges">
-      <g id="b-inner">
-
-        <!-- Jambes : pantalon beige + baskets blanches -->
-        <g id="b-leg-l">
-          <rect x="38" y="80" width="8" height="14" fill="#C9B48E" />
-          <rect x="34" y="92" width="12" height="6" fill="#FFFFFF" />
-          <rect x="34" y="98" width="12" height="2" fill="#D8D3C8" />
-        </g>
-        <g id="b-leg-r">
-          <rect x="50" y="80" width="8" height="14" fill="#C9B48E" />
-          <rect x="50" y="92" width="12" height="6" fill="#FFFFFF" />
-          <rect x="50" y="98" width="12" height="2" fill="#D8D3C8" />
-        </g>
-
-        <!-- Costume lin beige, chemise blanche, boutonnière -->
-        <g id="b-body">
-          <rect x="34" y="44" width="28" height="38" fill="#D3C0A2" />
-          <rect x="44" y="44" width="8" height="16" fill="#FFFFFF" />
-          <rect x="42" y="44" width="2" height="14" fill="#C2AE8C" />
-          <rect x="52" y="44" width="2" height="14" fill="#C2AE8C" />
-          <rect x="46" y="62" width="4" height="4" fill="#B9A67F" />
-          <rect x="36" y="47" width="4" height="4" fill="#C96F4A" />
-          <rect x="36" y="51" width="3" height="3" fill="#9CAF88" />
-        </g>
-
-        <!-- Bras -->
-        <g id="b-arm-l">
-          <rect x="26" y="44" width="8" height="16" fill="#D3C0A2" />
-          <rect x="26" y="60" width="8" height="10" fill="#EAB584" />
-        </g>
-        <g id="b-arm-r">
-          <rect x="62" y="44" width="8" height="16" fill="#D3C0A2" />
-          <rect x="62" y="60" width="8" height="10" fill="#EAB584" />
-        </g>
-
-        <!-- Tête : cheveux courts, barbe, sourire -->
-        <g id="b-head">
-          <rect x="28" y="8" width="40" height="36" fill="#EAB584" />
-          <g id="b-hair" fill="#2F2620">
-            <rect x="28" y="8" width="40" height="5" />
-            <rect x="28" y="13" width="4" height="8" />
-            <rect x="64" y="13" width="4" height="8" />
-          </g>
-          <g id="b-beard" fill="#3A2E24">
-            <rect x="28" y="26" width="5" height="18" />
-            <rect x="63" y="26" width="5" height="18" />
-            <rect x="28" y="38" width="40" height="6" />
-            <rect x="40" y="32" width="16" height="4" />
-          </g>
-          <rect x="44" y="37" width="8" height="3" fill="#8A5B4C" />
-          <g fill="#2F2620">
-            <rect x="36" y="20" width="8" height="2" />
-            <rect x="52" y="20" width="8" height="2" />
-          </g>
-          <g id="b-eyes">
-            <rect x="36" y="24" width="4" height="5" fill="#FFFFFF" />
-            <rect x="40" y="24" width="4" height="5" fill="#2F2620" />
-            <rect x="52" y="24" width="4" height="5" fill="#2F2620" />
-            <rect x="56" y="24" width="4" height="5" fill="#FFFFFF" />
-          </g>
-          <!-- Lunettes de soleil noires relevées dans les cheveux -->
-          <g id="b-shades">
-            <rect x="37" y="4" width="9" height="6" fill="#2A2A2A" />
-            <rect x="50" y="4" width="9" height="6" fill="#2A2A2A" />
-            <rect x="39" y="6" width="5" height="4" fill="#111111" />
-            <rect x="52" y="6" width="5" height="4" fill="#111111" />
-            <rect x="46" y="5" width="4" height="3" fill="#2A2A2A" />
-          </g>
-        </g>
-
-      </g>
-    </svg>
-
-  </div>
-
   <main>
 
     <!-- ============ 1. Hero ============ -->
     <section id="hero" class="hero">
-      <div id="hero-frame" class="hero-frame">
-        <p class="hero-kicker">Save the date</p>
+      <img class="hero-garland hero-garland--top" src="assets/web/olive-garland.png" alt="" aria-hidden="true">
+      <img class="hero-garland hero-garland--bottom" src="assets/web/olive-garland.png" alt="" aria-hidden="true">
+
+      <div class="hero-content">
+        <p class="hero-kicker">Nous nous marions</p>
         <h1 class="hero-names">Eya <span class="amp">&amp;</span> Yosri</h1>
-        <p class="hero-date">26 · 09 · 2026</p>
-        <p class="hero-venue">Mimosa · en plein air · 20h00</p>
+        <div class="hero-rule" aria-hidden="true">
+          <span class="rule-line"></span>
+          <svg class="rule-leaf" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg">
+            <path d="M7 13 C3 9 2 4 7 1 C12 4 11 9 7 13 Z" fill="none" stroke="#A8894E" stroke-width="1" />
+          </svg>
+          <span class="rule-line"></span>
+        </div>
+        <p class="hero-meta">Samedi 26 septembre 2026 · Espace Mimosa · 20h00</p>
+
         <!-- Compte à rebours jusqu'au grand jour (js/main.js) -->
         <div id="hero-countdown" class="hero-countdown" role="timer" aria-label="Compte à rebours jusqu'au grand jour">
-          <div class="cd-cell"><span class="cd-num" id="cd-days">–</span><span class="cd-unit">jours</span></div>
-          <div class="cd-cell"><span class="cd-num" id="cd-hours">–</span><span class="cd-unit">heures</span></div>
-          <div class="cd-cell"><span class="cd-num" id="cd-mins">–</span><span class="cd-unit">min</span></div>
-          <div class="cd-cell"><span class="cd-num" id="cd-secs">–</span><span class="cd-unit">sec</span></div>
+          <div class="cd-cell"><span class="cd-num" id="cd-days">–</span><span class="cd-unit">Jours</span></div>
+          <div class="cd-cell"><span class="cd-num" id="cd-hours">–</span><span class="cd-unit">Heures</span></div>
+          <div class="cd-cell"><span class="cd-num" id="cd-mins">–</span><span class="cd-unit">Minutes</span></div>
+          <div class="cd-cell"><span class="cd-num" id="cd-secs">–</span><span class="cd-unit">Secondes</span></div>
         </div>
       </div>
-      <p class="scroll-hint">↓ faites défiler ↓</p>
+
+      <div class="scroll-cue" aria-hidden="true">
+        <span class="scroll-line"></span>
+        <span>La soirée commence</span>
+      </div>
     </section>
+
+    <div class="branch-divider" aria-hidden="true"></div>
 
     <!-- ============ 2. Notre histoire ============ -->
     <section id="story" class="section story">
       <div class="container">
-        <h2 class="section-title">Notre histoire</h2>
-        <div id="story-frame" class="story-frame">
-          <ol class="timeline">
-            <li class="timeline-item">
-              <span class="timeline-year">2018</span>
-              <h3>Premier regard</h3>
-              <p>Texte à remplacer — racontez votre rencontre ici. Un café renversé, un fou rire, le destin.</p>
-            </li>
-            <li class="timeline-item">
-              <span class="timeline-year">2021</span>
-              <h3>Premier voyage</h3>
-              <p>Texte à remplacer — votre première aventure à deux (et la première valise oubliée).</p>
-            </li>
-            <li class="timeline-item">
-              <span class="timeline-year">2025</span>
-              <h3>La demande 💍</h3>
-              <p>Texte à remplacer — le grand OUI, quelque part sous les étoiles.</p>
-            </li>
-          </ol>
+        <img class="story-branch" src="assets/web/branch-full.png" alt="" aria-hidden="true">
+        <p class="eyebrow">Notre histoire</p>
+        <h2 class="section-title">Tout a commencé par un regard</h2>
+        <div class="chapters">
+          <article class="chapter">
+            <span class="chapter-year">2018</span>
+            <h3>Le premier regard</h3>
+            <p>Un café, un fou rire, et cette impression étrange que le hasard avait bien fait les choses.
+              Il ne nous a plus quittés.</p>
+          </article>
+          <article class="chapter">
+            <span class="chapter-year">2021</span>
+            <h3>Le premier voyage</h3>
+            <p>Deux billets, une valise oubliée et des routes qui ne menaient nulle part — c'est là que nous
+              avons su que nous irions loin, ensemble.</p>
+          </article>
+          <article class="chapter">
+            <span class="chapter-year">2025</span>
+            <h3>La demande</h3>
+            <p>Quelque part sous les étoiles, une question murmurée et un oui qui n'a pas hésité.
+              Le reste s'écrit le 26 septembre 2026.</p>
+          </article>
         </div>
       </div>
     </section>
 
-    <!-- ============ 2bis. Photos ============ -->
+    <div class="branch-divider" data-flip aria-hidden="true"></div>
+
+    <!-- ============ 2bis. L'heure dorée ============ -->
     <!-- Déposez vos photos dans assets/photos/ (photo-1.jpg … photo-4.jpg) -->
     <section id="gallery" class="section gallery">
       <div class="container">
-        <h2 class="section-title">La golden hour</h2>
-        <p class="section-sub">Quelques pixels de vraie vie ✨</p>
-        <div class="polaroids">
-          <figure class="polaroid" style="--tilt: -4deg">
-            <span class="polaroid-tape" aria-hidden="true"></span>
-            <div class="polaroid-photo" data-file="photo-1.jpg">
-              <img src="assets/photos/photo-1.jpg" alt="Eya tend son bouquet vers l'objectif au coucher du soleil"
-                loading="lazy" onerror="this.parentElement.classList.add('is-missing')">
+        <img class="gallery-branch" src="assets/web/branch-corner-1.png" alt="" aria-hidden="true">
+        <p class="eyebrow">Quelques instants</p>
+        <h2 class="section-title">L'heure dorée</h2>
+        <div class="gallery-grid">
+          <figure class="gallery-figure">
+            <div class="gallery-frame">
+              <div class="gallery-photo" data-file="photo-1.jpg">
+                <img src="assets/photos/photo-1.jpg" alt="Triptyque : la robe au vent, le bouquet, la boutonnière"
+                  loading="lazy" onerror="this.parentElement.classList.add('is-missing')">
+              </div>
             </div>
-            <figcaption>Le bouquet 🌸</figcaption>
+            <figcaption>Lin, fleurs &amp; lumière</figcaption>
           </figure>
-          <figure class="polaroid" style="--tilt: 3deg">
-            <span class="polaroid-tape" aria-hidden="true"></span>
-            <div class="polaroid-photo" data-file="photo-2.jpg">
-              <img src="assets/photos/photo-2.jpg" alt="Eya et Yosri front contre front, tout sourire" loading="lazy"
-                onerror="this.parentElement.classList.add('is-missing')">
+          <figure class="gallery-figure">
+            <div class="gallery-frame">
+              <div class="gallery-photo" data-file="photo-2.jpg">
+                <img src="assets/photos/photo-2.jpg" alt="Yosri sur son téléphone, main dans la main avec Eya"
+                  loading="lazy" onerror="this.parentElement.classList.add('is-missing')">
+              </div>
             </div>
-            <figcaption>Front contre front</figcaption>
+            <figcaption>Il confirmait le traiteur, promis.</figcaption>
           </figure>
-          <figure class="polaroid" style="--tilt: -2deg">
-            <span class="polaroid-tape" aria-hidden="true"></span>
-            <div class="polaroid-photo" data-file="photo-3.jpg">
-              <img src="assets/photos/photo-3.jpg" alt="Eya en robe champagne ajuste ses lunettes de soleil"
-                loading="lazy" onerror="this.parentElement.classList.add('is-missing')">
+          <figure class="gallery-figure">
+            <div class="gallery-frame">
+              <div class="gallery-photo" data-file="photo-3.jpg">
+                <img src="assets/photos/photo-3.jpg" alt="Eya et Yosri enlacés, tout sourire, dans la lumière du soir"
+                  loading="lazy" onerror="this.parentElement.classList.add('is-missing')">
+              </div>
             </div>
-            <figcaption>Golden hour</figcaption>
+            <figcaption>L'heure dorée</figcaption>
           </figure>
-          <figure class="polaroid" style="--tilt: 4deg">
-            <span class="polaroid-tape" aria-hidden="true"></span>
-            <div class="polaroid-photo" data-file="photo-4.jpg">
-              <img src="assets/photos/photo-4.jpg" alt="Yosri sur son téléphone, main dans la main avec Eya"
-                loading="lazy" onerror="this.parentElement.classList.add('is-missing')">
+          <figure class="gallery-figure">
+            <div class="gallery-frame">
+              <div class="gallery-photo" data-file="photo-4.jpg">
+                <img src="assets/photos/photo-4.jpg" alt="Eya et Yosri s'éloignent main dans la main sur la route"
+                  loading="lazy" onerror="this.parentElement.classList.add('is-missing')">
+              </div>
             </div>
-            <figcaption>Il confirmait le traiteur, promis 📱</figcaption>
+            <figcaption>Vers le grand jour</figcaption>
           </figure>
         </div>
       </div>
     </section>
 
-    <!-- ============ 3. Programme ============ -->
+    <!-- ============ 3. La soirée ============ -->
     <section id="schedule" class="section schedule">
       <div class="container">
-        <h2 class="section-title">Le programme</h2>
-        <p class="section-sub">Une soirée intime, au rythme des conversations et du violon 🎻</p>
-        <div class="schedule-cards">
-          <article class="schedule-card" id="card-1">
-            <span class="card-time">20h00</span>
-            <h3>Arrivée des invités</h3>
-            <p>On vous accueille sous le ciel du soir — la ponctualité est de mise 😉</p>
+        <p class="eyebrow">La soirée</p>
+        <h2 class="section-title">Le programme du 26 septembre</h2>
+        <p class="section-sub">Une soirée intime, au rythme des conversations, de la voix et du violon.</p>
+        <div class="schedule-list">
+          <div class="schedule-rail" aria-hidden="true"></div>
+          <article class="moment">
+            <div class="moment-time">20h00</div>
+            <div class="moment-body">
+              <h3>L'accueil</h3>
+              <p>On vous reçoit sous le ciel du soir, entre oliviers et bougies. La ponctualité est de mise.</p>
+            </div>
           </article>
-          <article class="schedule-card" id="card-2">
-            <span class="card-time">21h00</span>
-            <h3>Dîner</h3>
-            <p>Amuse-bouche · entrée · plat · dessert, puis cocktails signature (sans alcool).</p>
+          <article class="moment">
+            <div class="moment-time">21h00</div>
+            <div class="moment-body">
+              <h3>Le dîner</h3>
+              <p>Amuse-bouche, entrée, plat, dessert — puis cocktails signature, sans alcool.</p>
+            </div>
           </article>
-          <article class="schedule-card" id="card-3">
-            <span class="card-time">Toute la soirée</span>
-            <h3>Musique live</h3>
-            <p>Voix &amp; violon en douceur — et nous, de table en table, pour un moment avec chacun de vous.</p>
+          <article class="moment">
+            <div class="moment-time">Au fil de la nuit</div>
+            <div class="moment-body">
+              <h3>La musique</h3>
+              <p>Voix et violon, en douceur. Nous passerons de table en table, pour un moment avec chacun de vous.</p>
+            </div>
           </article>
-          <article class="schedule-card" id="card-4">
-            <span class="card-time">Pour finir</span>
-            <h3>Lâcher de lanternes</h3>
-            <p>Des centaines de lanternes s'élèvent ensemble dans la nuit ✨</p>
+          <article class="moment">
+            <div class="moment-time">Pour finir</div>
+            <div class="moment-body">
+              <h3>Les lanternes</h3>
+              <p>Des centaines de lanternes s'élèveront ensemble dans la nuit — la nôtre, et toutes les vôtres.</p>
+            </div>
           </article>
         </div>
+        <img class="schedule-branch" src="assets/web/branch-corner-2.png" alt="" aria-hidden="true">
       </div>
     </section>
 
-    <!-- ============ 4. Lieu & carte ============ -->
+    <div class="branch-divider" aria-hidden="true"></div>
+
+    <!-- ============ 4. Le lieu ============ -->
     <section id="venue" class="section venue">
       <div class="container">
-        <h2 class="section-title">Le lieu</h2>
-        <p class="section-sub">Lin, céramique, branches d'olivier et mille bougies — une soirée méditerranéenne à ciel
-          ouvert 🕯️</p>
-        <div id="map-frame" class="map-frame">
-          <iframe class="map-embed" title="Carte — Espace Mimosa"
-            src="https://maps.google.com/maps?q=34.802205,10.6714613&amp;hl=fr&amp;z=15&amp;output=embed" loading="lazy"
-            referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+        <p class="eyebrow">Le lieu</p>
+        <h2 class="section-title">Espace Mimosa</h2>
+        <div class="venue-body">
+          <div class="venue-photo">
+            <img src="assets/mimosa/mimosa.jpg" alt="L'allée de cérémonie de l'Espace Mimosa, fleurie et à ciel ouvert"
+              loading="lazy">
+          </div>
+          <div class="venue-text">
+            <p class="venue-note">Lin, céramique, branches d'olivier et mille bougies — une soirée méditerranéenne
+              à ciel ouvert.</p>
+            <div id="map-frame" class="map-frame">
+              <iframe class="map-embed" title="Carte — Espace Mimosa"
+                src="https://maps.google.com/maps?q=34.802205,10.6714613&amp;hl=fr&amp;z=15&amp;output=embed"
+                loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+            </div>
+            <p class="map-actions">
+              <a class="map-link" href="https://maps.app.goo.gl/BNDbM57GRoBZkH369" target="_blank"
+                rel="noopener">Ouvrir dans Google Maps</a>
+            </p>
+          </div>
         </div>
-        <p class="map-actions">
-          <a class="map-link" href="https://maps.app.goo.gl/BNDbM57GRoBZkH369" target="_blank" rel="noopener">📍 Espace
-            Mimosa — ouvrir dans Google Maps</a>
-        </p>
       </div>
     </section>
 
     <!-- ============ 5. RSVP ============ -->
     <section id="rsvp" class="section rsvp">
       <div class="container">
-        <h2 class="section-title">RSVP</h2>
-        <p class="rsvp-text">Une soirée intime, entre famille proche et amis chers. Dites-nous si vous serez des nôtres
-          avant le 1<sup>er</sup> août 2026 🌿</p>
-
-        <!-- La carte persistante : le formulaire s'y efface après envoi et
-             elle se resserre autour du mot de remerciement (voir celebrate()) -->
-        <div id="rsvp-card" class="rsvp-card">
+        <!-- La carte persistante : le formulaire s'y efface après envoi (voir celebrate()) -->
+        <div id="rsvp-card" class="rsvp-panel">
+          <img class="rsvp-wreath" src="assets/web/olive-wreath.png" alt="" aria-hidden="true">
+          <p class="eyebrow">RSVP</p>
+          <h2 class="section-title">Serez-vous des nôtres ?</h2>
+          <p class="rsvp-text">Une soirée intime, entre famille proche et amis chers. Faites-nous le plaisir de
+            répondre avant le 1<sup>er</sup> août 2026.</p>
 
           <!-- Formulaire intégré : envoie vers votre Google Form (config dans js/main.js, mode d'emploi dans le README) -->
           <form id="rsvp-form" class="rsvp-form" novalidate>
-          <div class="form-grid">
-            <label class="form-field form-field-full">
-              <span>Nom &amp; prénom *</span>
-              <input type="text" name="name" required autocomplete="name" placeholder="Ex : Amine &amp; Salma Ben Ali">
-            </label>
-            <fieldset class="form-field form-field-full form-radios">
-              <legend>Serez-vous des nôtres ? *</legend>
-              <label><input type="radio" name="attendance" value="Avec joie !" required> Avec joie ! 🌿</label>
-              <label><input type="radio" name="attendance" value="Avec regret, non"> Avec regret, non 😢</label>
-            </fieldset>
-            <label class="form-field form-check">
-              <span>Un +1 ?</span>
-              <span class="check-row">
-                <input type="checkbox" name="plusone" value="Oui, +1">
-                <span class="check-text">Je viens accompagné·e</span>
-              </span>
-            </label>
-            <label class="form-field">
-              <span>Allergies</span>
-              <input type="text" name="diet" placeholder="Crustacés, Gluten...">
-            </label>
-            <label class="form-field form-field-full">
-              <span>Un petit mot pour nous ?</span>
-              <textarea name="message" rows="3" placeholder="On a hâte !"></textarea>
-            </label>
-          </div>
-          <!-- Piège à robots : reste vide pour les humains -->
-          <input type="text" name="_gotcha" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
-          <button id="rsvp-button" class="rsvp-button" type="submit">J'envoie ma réponse 💌</button>
-          <p class="rsvp-hint">Un souci avec le formulaire ? Écrivez-nous : <a
-              href="mailto:mouhasahss@gmail.com">mouhasahss@gmail.com</a></p>
+            <div class="form-grid">
+              <label class="form-field form-field-full">
+                <span>Nom &amp; prénom *</span>
+                <input type="text" name="name" required autocomplete="name" placeholder="Ex : Amine &amp; Salma Ben Ali">
+              </label>
+              <fieldset class="form-field form-field-full form-radios">
+                <legend>Serez-vous des nôtres ? *</legend>
+                <div class="radio-row">
+                  <label class="pill"><input type="radio" name="attendance" value="Avec joie !" required>
+                    <span>Avec joie !</span></label>
+                  <label class="pill"><input type="radio" name="attendance" value="Avec regret, non">
+                    <span>Avec regret, non</span></label>
+                </div>
+              </fieldset>
+              <fieldset class="form-field form-radios">
+                <legend>Un +1 ?</legend>
+                <div class="radio-row">
+                  <label class="pill"><input type="checkbox" name="plusone" value="Oui, +1">
+                    <span>Je viens accompagné·e</span></label>
+                </div>
+              </fieldset>
+              <label class="form-field">
+                <span>Allergies</span>
+                <input type="text" name="diet" placeholder="Crustacés, gluten…">
+              </label>
+              <label class="form-field form-field-full">
+                <span>Un petit mot pour nous ?</span>
+                <textarea name="message" rows="3" placeholder="On a hâte !"></textarea>
+              </label>
+            </div>
+            <!-- Piège à robots : reste vide pour les humains -->
+            <input type="text" name="_gotcha" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <button id="rsvp-button" class="rsvp-button" type="submit">Envoyer ma réponse</button>
+            <p class="rsvp-hint">Un souci avec le formulaire ? Écrivez-nous :
+              <a href="mailto:mouhasahss@gmail.com">mouhasahss@gmail.com</a></p>
           </form>
 
           <div id="rsvp-success" class="rsvp-success" hidden>
-            <p class="rsvp-success-title">Merci ! 🎉</p>
-            <p class="rsvp-success-text">Votre réponse est bien partie — on a déjà hâte de vous voir sous les lanternes
-              ✨</p>
+            <div class="branch-divider" aria-hidden="true"></div>
+            <p class="rsvp-success-title">Merci</p>
+            <p class="rsvp-success-text">Votre réponse est bien partie — nous avons déjà hâte de vous voir sous
+              les lanternes.</p>
           </div>
 
         </div>
       </div>
     </section>
 
-    <!-- ============ 6. Footer ============ -->
+    <!-- ============ 6. Finale : la nuit des lanternes ============ -->
     <footer class="footer">
-      <!-- Lanternes flottantes du final -->
-      <div class="lanterns" aria-hidden="true">
-        <svg class="lantern" style="--x: 8%;  --d: 13s; --delay: 0s;   --s: 1;    --rise: 150px" viewBox="0 0 24 30"
-          xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
-          <rect x="9" y="0" width="6" height="3" fill="#8A6A2F" />
-          <rect x="5" y="3" width="14" height="20" fill="#E8C067" />
-          <rect x="7" y="6" width="10" height="12" fill="#F5E0A3" />
-          <rect x="10" y="14" width="4" height="6" fill="#FBF0C8" />
-          <rect x="9" y="23" width="6" height="3" fill="#8A6A2F" />
-          <rect x="11" y="26" width="2" height="4" fill="#E8C067" />
-        </svg>
-        <svg class="lantern" style="--x: 24%; --d: 16s; --delay: -6s;  --s: .8;   --rise: 220px" viewBox="0 0 24 30"
-          xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
-          <rect x="9" y="0" width="6" height="3" fill="#8A6A2F" />
-          <rect x="5" y="3" width="14" height="20" fill="#E8C067" />
-          <rect x="7" y="6" width="10" height="12" fill="#F5E0A3" />
-          <rect x="10" y="14" width="4" height="6" fill="#FBF0C8" />
-          <rect x="9" y="23" width="6" height="3" fill="#8A6A2F" />
-          <rect x="11" y="26" width="2" height="4" fill="#E8C067" />
-        </svg>
-        <svg class="lantern" style="--x: 42%; --d: 12s; --delay: -9s;  --s: 1.2;  --rise: 90px" viewBox="0 0 24 30"
-          xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
-          <rect x="9" y="0" width="6" height="3" fill="#8A6A2F" />
-          <rect x="5" y="3" width="14" height="20" fill="#E8C067" />
-          <rect x="7" y="6" width="10" height="12" fill="#F5E0A3" />
-          <rect x="10" y="14" width="4" height="6" fill="#FBF0C8" />
-          <rect x="9" y="23" width="6" height="3" fill="#8A6A2F" />
-          <rect x="11" y="26" width="2" height="4" fill="#E8C067" />
-        </svg>
-        <svg class="lantern" style="--x: 60%; --d: 15s; --delay: -3s;  --s: .9;   --rise: 260px" viewBox="0 0 24 30"
-          xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
-          <rect x="9" y="0" width="6" height="3" fill="#8A6A2F" />
-          <rect x="5" y="3" width="14" height="20" fill="#E8C067" />
-          <rect x="7" y="6" width="10" height="12" fill="#F5E0A3" />
-          <rect x="10" y="14" width="4" height="6" fill="#FBF0C8" />
-          <rect x="9" y="23" width="6" height="3" fill="#8A6A2F" />
-          <rect x="11" y="26" width="2" height="4" fill="#E8C067" />
-        </svg>
-        <svg class="lantern" style="--x: 76%; --d: 14s; --delay: -11s; --s: 1.1;  --rise: 130px" viewBox="0 0 24 30"
-          xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
-          <rect x="9" y="0" width="6" height="3" fill="#8A6A2F" />
-          <rect x="5" y="3" width="14" height="20" fill="#E8C067" />
-          <rect x="7" y="6" width="10" height="12" fill="#F5E0A3" />
-          <rect x="10" y="14" width="4" height="6" fill="#FBF0C8" />
-          <rect x="9" y="23" width="6" height="3" fill="#8A6A2F" />
-          <rect x="11" y="26" width="2" height="4" fill="#E8C067" />
-        </svg>
-        <svg class="lantern" style="--x: 90%; --d: 17s; --delay: -5s;  --s: .75;  --rise: 190px" viewBox="0 0 24 30"
-          xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
-          <rect x="9" y="0" width="6" height="3" fill="#8A6A2F" />
-          <rect x="5" y="3" width="14" height="20" fill="#E8C067" />
-          <rect x="7" y="6" width="10" height="12" fill="#F5E0A3" />
-          <rect x="10" y="14" width="4" height="6" fill="#FBF0C8" />
-          <rect x="9" y="23" width="6" height="3" fill="#8A6A2F" />
-          <rect x="11" y="26" width="2" height="4" fill="#E8C067" />
-        </svg>
+      <img class="lanterns-sky" src="assets/web/lanterns-sky.png" alt="" aria-hidden="true">
+      <div class="lantern-field" aria-hidden="true">
+        <img class="f-lantern" src="assets/web/lantern-paper.png" alt="" style="--x: 6%;  --w: 110px" data-speed="1.05">
+        <img class="f-lantern" src="assets/web/lantern-glow.png"  alt="" style="--x: 26%; --w: 64px"  data-speed="1.5">
+        <img class="f-lantern" src="assets/web/lantern-paper.png" alt="" style="--x: 55%; --w: 78px"  data-speed="1.25">
+        <img class="f-lantern" src="assets/web/lantern-glow.png"  alt="" style="--x: 78%; --w: 96px"  data-speed="0.9">
+        <img class="f-lantern" src="assets/web/lantern-paper.png" alt="" style="--x: 90%; --w: 56px"  data-speed="1.7">
       </div>
-      <p class="footer-line">Pixel par pixel, on a construit notre histoire — le 26 septembre, elle s'envolera en
-        lanternes dans le ciel de Mimosa. Venez la porter avec nous.</p>
-      <p class="footer-names">Eya &amp; Yosri · 26 septembre 2026 · Mimosa 💛</p>
+
+      <div class="footer-content">
+        <p class="footer-line">Quand la dernière lanterne rejoindra le ciel de Mimosa, notre histoire commencera
+          son plus beau chapitre. Venez l'écrire avec nous.</p>
+        <p class="footer-names">Eya &amp; Yosri · 26 septembre 2026 · Espace Mimosa</p>
+      </div>
+
       <p class="footer-credit">
-        Fait avec 💛 par Mohamed Sahnoun
+        Fait avec soin par Mohamed Sahnoun
         <span class="credit-sep" aria-hidden="true">·</span>
         <a href="https://www.instagram.com/sahnou_med/" target="_blank" rel="noopener">Instagram</a>
         <span class="credit-sep" aria-hidden="true">·</span>
@@ -480,7 +320,6 @@
 
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/MotionPathPlugin.min.js"></script>
   <script src="js/main.js"></script>
 
   <!-- Vercel Web Analytics — ne se charge qu'une fois le site déployé
