@@ -338,6 +338,12 @@ main { position: relative; }
 .hero-garland--top { top: -1px; }
 .hero-garland--bottom { bottom: -1px; transform: rotate(180deg); }
 
+/* Item flex : sans plafond, sa largeur descend au min-content du
+   compte à rebours et déborde (donc se rogne) sur les petits écrans */
+.hero-content {
+  max-width: 100%;
+}
+
 .hero-kicker {
   font-family: var(--font-caps);
   font-size: .78rem;
@@ -395,7 +401,9 @@ main { position: relative; }
 /* Compte à rebours : cellules séparées de filets */
 .hero-countdown {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
+  row-gap: 1.2rem;
   margin-top: clamp(2rem, 5vh, 3.2rem);
 }
 
@@ -976,13 +984,12 @@ main { position: relative; }
 
 .footer {
   position: relative;
-  min-height: 96svh;
+  min-height: 74svh;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   text-align: center;
-  padding: clamp(6rem, 16vh, 10rem) 1.4rem 2.4rem;
+  padding: clamp(3.5rem, 8vh, 5.5rem) 1.4rem 2.4rem;
   background:
     radial-gradient(ellipse 130% 70% at 50% 100%, rgba(216, 156, 85, .12) 0%, transparent 55%),
     linear-gradient(#1B2012 0%, var(--night) 60%, #101307 100%);
@@ -1033,10 +1040,14 @@ main { position: relative; }
   filter: drop-shadow(0 0 26px rgba(216, 156, 85, .4));
 }
 
+/* L'espace libre du finale est au-dessus du texte — c'est le ciel où
+   montent les lanternes — et le message reste groupé avec le crédit,
+   sans vide entre les deux. */
 .footer-content {
   position: relative;
   max-width: 640px;
   z-index: 2;
+  margin-top: auto;
 }
 
 .footer-line {
@@ -1060,8 +1071,7 @@ main { position: relative; }
 .footer-credit {
   position: relative;
   z-index: 2;
-  margin-top: auto;
-  padding-top: 4rem;
+  padding-top: 3.2rem;
   font-size: .78rem;
   font-weight: 300;
   color: var(--cream-soft);
@@ -1088,6 +1098,27 @@ main { position: relative; }
   .moment-time { text-align: left; padding-top: 0; }
 
   .music-toggle { top: .8rem; right: .8rem; }
+}
+
+/* Très petits écrans : le compte à rebours passe en 2×2 et la ligne
+   de métadonnées resserre son interlettrage pour tenir sans se rogner */
+@media (max-width: 420px) {
+  /* Le contenu centré (noms sur deux lignes, compte à rebours 2×2)
+     descend plus bas : on réserve la zone du « La soirée commence » */
+  .hero { padding-bottom: calc(var(--garland-h) + 96px); }
+
+  .hero-meta { letter-spacing: .2em; }
+
+  .hero-countdown {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 1.4rem;
+    max-width: 300px;
+    margin-inline: auto;
+  }
+
+  .cd-cell { border-left: 0; }
+  .cd-cell:nth-child(even) { border-left: 1px solid rgba(168, 137, 78, .4); }
 }
 
 /* ============ Mouvement réduit ============ */

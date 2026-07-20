@@ -21,6 +21,12 @@ if (hasGsap) {
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const animate = hasGsap && !reducedMotion;
 
+// Le carton d'ouverture réapparaît à chaque visite : on repart du haut
+// plutôt que de laisser le navigateur restaurer un défilement au milieu
+// de la page derrière l'overlay.
+if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+window.scrollTo(0, 0);
+
 /* ---------- Ouverture + musique ---------- */
 
 const overlay = document.getElementById('overlay');
@@ -323,21 +329,53 @@ const DUSK_STOPS = [
   ['.footer', '#161A0F'],
 ];
 
+/* Un seul « peintre » plutôt qu'une chaîne de tweens : plusieurs tweens
+   scrubbés sur la même propriété se marchent dessus à chaque
+   ScrollTrigger.refresh() (le dernier ré-applique sa couleur de départ
+   — la page restait sombre après l'envoi du RSVP, qui change la hauteur
+   de la carte et déclenche un refresh). Ici la couleur est recalculée
+   depuis la position de défilement : déterministe, et les bornes sont
+   re-mesurées à chaque refresh, donc resize et reflows sont sans danger. */
 function buildDusk() {
   const dusk = document.getElementById('dusk');
   if (!dusk) return;
-  let previous = '#F4EFE2';
-  for (const [selector, color] of DUSK_STOPS) {
-    const section = document.querySelector(selector);
-    if (!section) continue;
-    gsap.fromTo(dusk, { backgroundColor: previous }, {
-      backgroundColor: color,
-      ease: 'none',
-      immediateRender: false,
-      scrollTrigger: { trigger: section, start: 'top 92%', end: 'top 38%', scrub: true },
-    });
-    previous = color;
-  }
+
+  const BASE = '#F4EFE2';
+  let segments = [];
+
+  // Chaque section teinte le ciel pendant son arrivée dans le viewport
+  // (de 92 % à 38 % de la hauteur d'écran, comme avant)
+  const measure = () => {
+    const vh = window.innerHeight;
+    let previous = BASE;
+    segments = [];
+    for (const [selector, color] of DUSK_STOPS) {
+      const section = document.querySelector(selector);
+      if (!section) continue;
+      const top = section.getBoundingClientRect().top + window.scrollY;
+      segments.push({ start: top - vh * 0.92, end: top - vh * 0.38, from: previous, to: color });
+      previous = color;
+    }
+  };
+
+  const paint = () => {
+    const y = window.scrollY;
+    let color = BASE;
+    for (const seg of segments) {
+      if (y <= seg.start) break;
+      color = y >= seg.end
+        ? seg.to
+        : gsap.utils.interpolate(seg.from, seg.to, (y - seg.start) / (seg.end - seg.start));
+    }
+    dusk.style.backgroundColor = color;
+  };
+
+  ScrollTrigger.create({
+    start: 0,
+    end: 'max',
+    onUpdate: paint,
+    onRefresh: () => { measure(); paint(); },
+  });
 }
 
 /* --- Les rameaux poussent entre les sections --- */
@@ -452,6 +490,8 @@ function buildLanterns() {
     scrollTrigger: { trigger: footer, start: 'top 90%', end: 'top 15%', scrub: true },
   });
 
+  const sways = [];
+
   document.querySelectorAll('.f-lantern').forEach((lantern) => {
     const speed = parseFloat(lantern.dataset.speed || '1');
 
@@ -469,14 +509,24 @@ function buildLanterns() {
     });
 
     // La dérive du vent, continue
-    gsap.to(lantern, {
+    sways.push(gsap.to(lantern, {
       x: gsap.utils.random(-26, 26),
       rotation: gsap.utils.random(-4, 4),
       duration: gsap.utils.random(3.2, 5.6),
       ease: 'sine.inOut',
       yoyo: true,
       repeat: -1,
-    });
+      paused: true,
+    }));
+  });
+
+  // Le vent ne souffle que quand le finale est visible : inutile de
+  // faire tourner des tweens infinis pendant tout le reste de la visite
+  ScrollTrigger.create({
+    trigger: footer,
+    start: 'top bottom',
+    end: 'bottom top',
+    onToggle: (self) => sways.forEach((s) => (self.isActive ? s.play() : s.pause())),
   });
 }
 
