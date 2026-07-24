@@ -10,21 +10,39 @@
   <meta property="og:title" content="Eya & Yosri — 26 septembre 2026">
   <meta property="og:description" content="Une soirée méditerranéenne sous les oliviers et les lanternes. Vous êtes invités.">
   <meta property="og:image" content="assets/photos/photo-3.jpg">
+  <meta name="theme-color" content="#161A0F">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=Marcellus&family=Mulish:wght@300;400;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..600,0..80;1,9..144,300..600,0..80&family=Marcellus&family=Mulish:wght@300;400;600;700&display=swap"
     rel="stylesheet">
+
+  <link rel="preload" as="image" href="assets/photos/photo-3.jpg">
   <link rel="preload" as="image" href="assets/web/olive-wreath.png">
-  <link rel="preload" as="image" href="assets/web/olive-garland.png">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 
 <body class="locked">
 
-  <!-- Le ciel de la soirée : sa couleur suit le défilement (js/main.js) -->
-  <div id="dusk" aria-hidden="true"></div>
+  <!-- ============================================================
+       Le ciel vivant : un shader WebGL (js/sky.js) peint une vraie
+       voûte du soir — soleil qui se couche, lueur d'horizon, étoiles
+       qui s'allument — pilotée par le défilement. Le dégradé CSS ci-
+       dessous est l'état de repli (WebGL absent) et le premier rendu.
+       ============================================================ -->
+  <div id="sky" aria-hidden="true"></div>
+  <!-- Plan continu des lanternes : calque fixe derrière le contenu (au-dessus
+       du ciel), pour que les lanternes s'élèvent sans être coupées à la
+       frontière entre les deux dernières sections. Peuplé par js/main.js. -->
+  <div class="lantern-field" aria-hidden="true"></div>
   <div id="grain" aria-hidden="true"></div>
+
+  <!-- Curseur sur-mesure (bureau, pointeur fin uniquement) -->
+  <div id="cursor" class="cursor" aria-hidden="true">
+    <span class="cursor-dot"></span>
+    <span class="cursor-ring"></span>
+  </div>
 
   <!-- ============ Ouverture : le carton d'invitation (déclenche la musique) ============ -->
   <div id="overlay" class="overlay" role="button" tabindex="0" aria-label="Ouvrir l'invitation">
@@ -33,12 +51,11 @@
       <p class="overlay-kicker">Samedi 26 septembre 2026</p>
       <h2 class="overlay-names">Eya <span class="amp">&amp;</span> Yosri</h2>
       <p class="overlay-title">Vous êtes invités</p>
-      <p class="overlay-hint">Toucher pour ouvrir l'invitation</p>
+      <p class="overlay-hint"><span>Toucher pour ouvrir l'invitation</span></p>
     </div>
   </div>
 
   <!-- ============ Musique de fond ============ -->
-  <!-- Déposez votre morceau dans assets/music.mp3 (voir README) -->
   <audio id="bg-music" src="assets/music.mp3" loop preload="auto"></audio>
   <button id="music-toggle" class="music-toggle" aria-label="Couper ou activer la musique" aria-pressed="false">
     <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>
@@ -46,27 +63,27 @@
 
   <main>
 
-    <!-- ============ 1. Hero ============ -->
+    <!-- ============ 1. Hero (photographique) ============ -->
     <section id="hero" class="hero">
-      <img class="hero-garland hero-garland--top" src="assets/web/olive-garland.png" alt="" aria-hidden="true"
-        decoding="async">
-      <img class="hero-garland hero-garland--bottom" src="assets/web/olive-garland.png" alt="" aria-hidden="true"
-        decoding="async">
+      <div class="hero-media" aria-hidden="true">
+        <img class="hero-photo" src="assets/photos/photo-3.jpg" alt="" decoding="async" fetchpriority="high">
+        <div class="hero-grade"></div>
+      </div>
 
       <div class="hero-content">
-        <p class="hero-kicker">Nous nous marions</p>
-        <h1 class="hero-names">Eya <span class="amp">&amp;</span> Yosri</h1>
-        <div class="hero-rule" aria-hidden="true">
+        <p class="hero-kicker reveal-line">Nous nous marions</p>
+        <h1 class="hero-names" data-split>Eya <span class="amp">&amp;</span> Yosri</h1>
+        <div class="hero-rule reveal-fade" aria-hidden="true">
           <span class="rule-line"></span>
           <svg class="rule-leaf" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg">
-            <path d="M7 13 C3 9 2 4 7 1 C12 4 11 9 7 13 Z" fill="none" stroke="#A8894E" stroke-width="1" />
+            <path d="M7 13 C3 9 2 4 7 1 C12 4 11 9 7 13 Z" fill="none" stroke="currentColor" stroke-width="1" />
           </svg>
           <span class="rule-line"></span>
         </div>
-        <p class="hero-meta">Samedi 26 septembre 2026 · Espace Mimosa · 20h00</p>
+        <p class="hero-meta reveal-line">26 septembre 2026 · Espace Mimosa · 20h00</p>
 
-        <!-- Compte à rebours jusqu'au grand jour (js/main.js) -->
-        <div id="hero-countdown" class="hero-countdown" role="timer" aria-label="Compte à rebours jusqu'au grand jour">
+        <div id="hero-countdown" class="hero-countdown reveal-fade" role="timer"
+          aria-label="Compte à rebours jusqu'au grand jour">
           <div class="cd-cell"><span class="cd-num" id="cd-days">–</span><span class="cd-unit">Jours</span></div>
           <div class="cd-cell"><span class="cd-num" id="cd-hours">–</span><span class="cd-unit">Heures</span></div>
           <div class="cd-cell"><span class="cd-num" id="cd-mins">–</span><span class="cd-unit">Minutes</span></div>
@@ -74,54 +91,64 @@
         </div>
       </div>
 
-      <div class="scroll-cue" aria-hidden="true">
+      <div class="scroll-cue reveal-fade" aria-hidden="true">
         <span class="scroll-line"></span>
         <span>La soirée commence</span>
       </div>
     </section>
 
-    <div class="branch-divider" aria-hidden="true"></div>
-
-    <!-- ============ 2. Notre histoire ============ -->
+    <!-- ============ 2. Notre histoire (chronologie éditoriale) ============ -->
     <section id="story" class="section story">
       <div class="container">
+        <header class="section-head section-head--left">
+          <p class="eyebrow reveal-line">Notre histoire</p>
+          <h2 class="section-title" data-split>Tout a commencé<br>par un regard</h2>
+        </header>
+
+        <ol class="timeline">
+          <li class="tl-item" data-side="left">
+            <span class="tl-year" aria-hidden="true">2018</span>
+            <div class="tl-body">
+              <span class="tl-year-label">2018</span>
+              <h3>Le premier regard</h3>
+              <p>Un café, un fou rire, et cette impression étrange que le hasard avait bien fait les choses.
+                Il ne nous a plus quittés.</p>
+            </div>
+          </li>
+          <li class="tl-item" data-side="right">
+            <span class="tl-year" aria-hidden="true">2021</span>
+            <div class="tl-body">
+              <span class="tl-year-label">2021</span>
+              <h3>Le premier voyage</h3>
+              <p>Deux billets, une valise oubliée et des routes qui ne menaient nulle part — c'est là que nous
+                avons su que nous irions loin, ensemble.</p>
+            </div>
+          </li>
+          <li class="tl-item" data-side="left">
+            <span class="tl-year" aria-hidden="true">2025</span>
+            <div class="tl-body">
+              <span class="tl-year-label">2025</span>
+              <h3>La demande</h3>
+              <p>Quelque part sous les étoiles, une question murmurée et un oui qui n'a pas hésité.
+                Le reste s'écrit le 26 septembre 2026.</p>
+            </div>
+          </li>
+        </ol>
+
+        <span class="story-rail" aria-hidden="true"></span>
         <img class="story-branch" src="assets/web/branch-full.png" alt="" aria-hidden="true" loading="lazy"
           decoding="async">
-        <p class="eyebrow">Notre histoire</p>
-        <h2 class="section-title">Tout a commencé par un regard</h2>
-        <div class="chapters">
-          <article class="chapter">
-            <span class="chapter-year">2018</span>
-            <h3>Le premier regard</h3>
-            <p>Un café, un fou rire, et cette impression étrange que le hasard avait bien fait les choses.
-              Il ne nous a plus quittés.</p>
-          </article>
-          <article class="chapter">
-            <span class="chapter-year">2021</span>
-            <h3>Le premier voyage</h3>
-            <p>Deux billets, une valise oubliée et des routes qui ne menaient nulle part — c'est là que nous
-              avons su que nous irions loin, ensemble.</p>
-          </article>
-          <article class="chapter">
-            <span class="chapter-year">2025</span>
-            <h3>La demande</h3>
-            <p>Quelque part sous les étoiles, une question murmurée et un oui qui n'a pas hésité.
-              Le reste s'écrit le 26 septembre 2026.</p>
-          </article>
-        </div>
       </div>
     </section>
 
-    <div class="branch-divider" data-flip aria-hidden="true"></div>
-
-    <!-- ============ 2bis. L'heure dorée ============ -->
-    <!-- Déposez vos photos dans assets/photos/ (photo-1.jpg … photo-4.jpg) -->
+    <!-- ============ 3. L'heure dorée (galerie) ============ -->
     <section id="gallery" class="section gallery">
       <div class="container">
-        <img class="gallery-branch" src="assets/web/branch-corner-1.png" alt="" aria-hidden="true" loading="lazy"
-          decoding="async">
-        <p class="eyebrow">Quelques instants</p>
-        <h2 class="section-title">L'heure dorée</h2>
+        <header class="section-head section-head--right">
+          <p class="eyebrow reveal-line">Quelques instants</p>
+          <h2 class="section-title" data-split>L'heure dorée</h2>
+        </header>
+
         <div class="gallery-grid">
           <figure class="gallery-figure">
             <div class="gallery-frame">
@@ -163,14 +190,18 @@
       </div>
     </section>
 
-    <!-- ============ 3. La soirée ============ -->
+    <!-- ============ 4. La soirée (programme) ============ -->
     <section id="schedule" class="section schedule">
       <div class="container">
-        <p class="eyebrow">La soirée</p>
-        <h2 class="section-title">Le programme du 26 septembre</h2>
-        <p class="section-sub">Une soirée intime, au rythme des conversations, de la voix et du violon.</p>
+        <header class="section-head section-head--left">
+          <p class="eyebrow reveal-line">La soirée</p>
+          <h2 class="section-title" data-split>Le programme<br>du 26 septembre</h2>
+          <p class="section-sub reveal-fade">Une soirée intime, au rythme des conversations, de la voix et du
+            violon.</p>
+        </header>
+
         <div class="schedule-list">
-          <div class="schedule-rail" aria-hidden="true"></div>
+          <span class="schedule-rail" aria-hidden="true"></span>
           <article class="moment">
             <div class="moment-time">20h00</div>
             <div class="moment-body">
@@ -205,28 +236,37 @@
       </div>
     </section>
 
-    <div class="branch-divider" aria-hidden="true"></div>
-
-    <!-- ============ 4. Le lieu ============ -->
+    <!-- ============ 5. Le lieu ============ -->
     <section id="venue" class="section venue">
       <div class="container">
-        <p class="eyebrow">Le lieu</p>
-        <h2 class="section-title">Espace Mimosa</h2>
         <div class="venue-body">
-          <div class="venue-photo">
+          <div class="venue-photo reveal-fade">
             <img src="assets/mimosa/mimosa.jpg" alt="L'allée de cérémonie de l'Espace Mimosa, fleurie et à ciel ouvert"
               loading="lazy">
           </div>
           <div class="venue-text">
-            <p class="venue-note">Lin, céramique, branches d'olivier et mille bougies — une soirée méditerranéenne
-              à ciel ouvert.</p>
-            <div id="map-frame" class="map-frame">
-              <iframe class="map-embed" title="Carte — Espace Mimosa"
-                src="https://maps.google.com/maps?q=34.802205,10.6714613&amp;hl=fr&amp;z=15&amp;output=embed"
-                loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+            <p class="eyebrow reveal-line">Le lieu</p>
+            <h2 class="section-title section-title--left" data-split>Espace Mimosa</h2>
+            <p class="venue-note reveal-fade">Lin, céramique, branches d'olivier et mille bougies — une soirée
+              méditerranéenne à ciel ouvert.</p>
+
+            <!-- Plaque de lieu gravée : élégante et honnête, la vraie carte est à un clic -->
+            <div class="venue-plate reveal-fade">
+              <svg class="plate-compass" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <circle cx="32" cy="32" r="29" fill="none" stroke="currentColor" stroke-width="1" opacity=".6" />
+                <circle cx="32" cy="32" r="23" fill="none" stroke="currentColor" stroke-width="1" opacity=".3" />
+                <path d="M32 8 L37 30 L32 56 L27 30 Z" fill="currentColor" opacity=".85" />
+                <path d="M8 32 L56 32 M32 8 L32 56" stroke="currentColor" stroke-width=".5" opacity=".35" />
+                <circle cx="32" cy="32" r="2.4" fill="currentColor" />
+              </svg>
+              <div class="plate-lines">
+                <p class="plate-address">Espace Mimosa · Route de l'aéroport, Sfax</p>
+                <p class="plate-coords">34°48'08"N&nbsp;&nbsp;10°40'17"E</p>
+              </div>
             </div>
-            <p class="map-actions">
-              <a class="map-link" href="https://maps.app.goo.gl/BNDbM57GRoBZkH369" target="_blank"
+
+            <p class="map-actions reveal-fade">
+              <a class="map-link magnetic" href="https://maps.app.goo.gl/BNDbM57GRoBZkH369" target="_blank"
                 rel="noopener">Ouvrir dans Google Maps</a>
             </p>
           </div>
@@ -234,11 +274,10 @@
       </div>
     </section>
 
-    <!-- ============ 5. RSVP ============ -->
+    <!-- ============ 6. RSVP ============ -->
     <section id="rsvp" class="section rsvp">
       <div class="container">
-        <!-- La carte persistante : le formulaire s'y efface après envoi (voir celebrate()) -->
-        <div id="rsvp-card" class="rsvp-panel">
+        <div id="rsvp-card" class="rsvp-panel reveal-fade">
           <img class="rsvp-wreath" src="assets/web/olive-wreath.png" alt="" aria-hidden="true" loading="lazy"
             decoding="async">
           <p class="eyebrow">RSVP</p>
@@ -246,12 +285,11 @@
           <p class="rsvp-text">Une soirée intime, entre famille proche et amis chers. Faites-nous le plaisir de
             répondre avant le 1<sup>er</sup> août 2026.</p>
 
-          <!-- Formulaire intégré : envoie vers votre Google Form (config dans js/main.js, mode d'emploi dans le README) -->
           <form id="rsvp-form" class="rsvp-form" novalidate>
             <div class="form-grid">
               <label class="form-field form-field-full">
-                <span>Nom &amp; prénom *</span>
-                <input type="text" name="name" required autocomplete="name" placeholder="Ex : Amine &amp; Salma Ben Ali">
+                <input type="text" name="name" required autocomplete="name" placeholder=" ">
+                <span class="field-label">Nom &amp; prénom *</span>
               </label>
               <fieldset class="form-field form-field-full form-radios">
                 <legend>Serez-vous des nôtres ? *</legend>
@@ -270,17 +308,16 @@
                 </div>
               </fieldset>
               <label class="form-field">
-                <span>Allergies</span>
-                <input type="text" name="diet" placeholder="Crustacés, gluten…">
+                <input type="text" name="diet" placeholder=" ">
+                <span class="field-label">Allergies</span>
               </label>
               <label class="form-field form-field-full">
-                <span>Un petit mot pour nous ?</span>
-                <textarea name="message" rows="3" placeholder="On a hâte !"></textarea>
+                <textarea name="message" rows="3" placeholder=" "></textarea>
+                <span class="field-label">Un petit mot pour nous ?</span>
               </label>
             </div>
-            <!-- Piège à robots : reste vide pour les humains -->
             <input type="text" name="_gotcha" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
-            <button id="rsvp-button" class="rsvp-button" type="submit">Envoyer ma réponse</button>
+            <button id="rsvp-button" class="rsvp-button magnetic" type="submit">Envoyer ma réponse</button>
             <p class="rsvp-hint">Un souci avec le formulaire ? Écrivez-nous :
               <a href="mailto:mouhasahss@gmail.com">mouhasahss@gmail.com</a></p>
           </form>
@@ -296,46 +333,34 @@
       </div>
     </section>
 
-    <!-- ============ 6. Finale : la nuit des lanternes ============ -->
+    <!-- ============ 7. Finale : la nuit des lanternes ============ -->
     <footer class="footer">
-      <img class="lanterns-sky" src="assets/web/lanterns-sky.png" alt="" aria-hidden="true" loading="lazy"
-        decoding="async">
-      <div class="lantern-field" aria-hidden="true">
-        <img class="f-lantern" src="assets/web/lantern-paper.png" alt="" style="--x: 6%;  --w: 110px" data-speed="1.05"
-          loading="lazy" decoding="async">
-        <img class="f-lantern" src="assets/web/lantern-glow.png"  alt="" style="--x: 26%; --w: 64px"  data-speed="1.5"
-          loading="lazy" decoding="async">
-        <img class="f-lantern" src="assets/web/lantern-paper.png" alt="" style="--x: 55%; --w: 78px"  data-speed="1.25"
-          loading="lazy" decoding="async">
-        <img class="f-lantern" src="assets/web/lantern-glow.png"  alt="" style="--x: 78%; --w: 96px"  data-speed="0.9"
-          loading="lazy" decoding="async">
-        <img class="f-lantern" src="assets/web/lantern-paper.png" alt="" style="--x: 90%; --w: 56px"  data-speed="1.7"
-          loading="lazy" decoding="async">
-      </div>
-
       <div class="footer-content">
-        <p class="footer-line">Quand la dernière lanterne rejoindra le ciel de Mimosa, notre histoire commencera
-          son plus beau chapitre. Venez l'écrire avec nous.</p>
+        <p class="footer-line" data-split>Quand la dernière lanterne rejoindra le ciel de Mimosa, notre histoire
+          commencera son plus beau chapitre. Venez l'écrire avec nous.</p>
         <p class="footer-names">Eya &amp; Yosri · 26 septembre 2026 · Espace Mimosa</p>
       </div>
 
       <p class="footer-credit">
         Fait avec soin par Mohamed Sahnoun
         <span class="credit-sep" aria-hidden="true">·</span>
-        <a href="https://www.instagram.com/sahnou_med/" target="_blank" rel="noopener">Instagram</a>
+        <a class="magnetic" href="https://www.instagram.com/sahnou_med/" target="_blank" rel="noopener">Instagram</a>
         <span class="credit-sep" aria-hidden="true">·</span>
-        <a href="https://www.linkedin.com/in/mohamed-sahnoun-1a33b71a0/" target="_blank" rel="noopener">LinkedIn</a>
+        <a class="magnetic" href="https://www.linkedin.com/in/mohamed-sahnoun-1a33b71a0/" target="_blank"
+          rel="noopener">LinkedIn</a>
       </p>
     </footer>
 
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/SplitText.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.min.js"></script>
+  <script type="module" src="js/sky.js"></script>
   <script src="js/main.js"></script>
 
-  <!-- Vercel Web Analytics — ne se charge qu'une fois le site déployé
-       (pensez à activer Analytics dans le dashboard du projet Vercel) -->
+  <!-- Vercel Web Analytics — ne se charge qu'une fois le site déployé -->
   <script>
     if (!['localhost', '127.0.0.1'].includes(location.hostname)) {
       window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };

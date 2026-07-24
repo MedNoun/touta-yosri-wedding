@@ -1,31 +1,54 @@
 /* ============================================================
    Eya & Yosri — scripts
-   Ouverture + musique · compte à rebours · RSVP → Google Form
-   Scénographie GSAP : le ciel (#dusk) passe de l'après-midi à la
-   nuit au fil du défilement, les rameaux d'olivier « poussent »
-   entre les sections, les guirlandes du hero s'écartent, les
-   photos dérivent en parallaxe et les lanternes s'élèvent dans
-   le finale. Transform/opacity uniquement (+ une couleur de fond
-   sur un calque fixe).
+   ------------------------------------------------------------
+   · Défilement soyeux (Lenis) branché sur le ticker GSAP
+   · Garde de robustesse (.js-anim) : le contenu est visible par
+     défaut ; on ne le cache QU'UNE FOIS GSAP prêt, et un filet
+     de sécurité révèle le hero si une timeline cale.
+   · Ciel vivant piloté au scroll (voir js/sky.js), avec repli
+     couleur si le WebGL manque.
+   · Type cinématographique (SplitText), curseur sur-mesure,
+     boutons magnétiques, finale des lanternes.
+   · Ouverture + musique · compte à rebours · RSVP → Google Form.
    ============================================================ */
 
 const hasGsap = typeof gsap !== 'undefined' && typeof ScrollTrigger !== 'undefined';
+const hasSplit = typeof SplitText !== 'undefined';
 if (hasGsap) {
   gsap.registerPlugin(ScrollTrigger);
-  // La barre d'adresse mobile qui se replie/déplie change innerHeight :
-  // sans ce drapeau, ScrollTrigger rafraîchit en pleine scène et le
-  // scrub saute. On ignore les resize « hauteur seule » sur tactile.
+  if (hasSplit) gsap.registerPlugin(SplitText);
   ScrollTrigger.config({ ignoreMobileResize: true });
 }
 
-const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-const animate = hasGsap && !reducedMotion;
+const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const animate = hasGsap && !reduced;
+const finePointer = window.matchMedia('(pointer: fine)').matches;
+const root = document.documentElement;
 
-// Le carton d'ouverture réapparaît à chaque visite : on repart du haut
-// plutôt que de laisser le navigateur restaurer un défilement au milieu
-// de la page derrière l'overlay.
 if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
 window.scrollTo(0, 0);
+
+/* ---------- Défilement soyeux (Lenis) ---------- */
+
+let lenis = null;
+if (animate && typeof Lenis !== 'undefined') {
+  lenis = new Lenis({
+    duration: 1.15,
+    easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+    smoothWheel: true,
+    wheelMultiplier: 0.9,
+    touchMultiplier: 1.4,
+  });
+  lenis.on('scroll', ScrollTrigger.update);
+  gsap.ticker.add((time) => lenis.raf(time * 1000));
+  gsap.ticker.lagSmoothing(0);
+  lenis.stop(); // verrouillé tant que le carton d'invitation est là
+}
+
+/* ---------- Garde de robustesse ----------
+   On ne pose .js-anim (qui cache les éléments à révéler) qu'après
+   une frame : si le rAF ne tourne jamais, le contenu reste visible. */
+if (animate) requestAnimationFrame(() => root.classList.add('js-anim'));
 
 /* ---------- Ouverture + musique ---------- */
 
@@ -40,51 +63,49 @@ function updateMusicUI() {
   musicBtn.setAttribute('aria-pressed', String(playing));
 }
 
+let heroIntroPlayed = false;
+let heroIntroDone = false;
+let heroSplit = null;
+
 function openInvitation() {
   if (!overlay || overlay.classList.contains('is-open')) return;
   overlay.classList.add('is-open');
   document.body.classList.remove('locked');
-  setTimeout(() => overlay.remove(), 900);
+  if (lenis) lenis.start();
+  setTimeout(() => overlay.remove(), 1000);
 
   if (audio) {
     audio.volume = 0.55;
-    // La lecture ne peut démarrer que sur un geste utilisateur (iOS inclus)
     audio.play().then(updateMusicUI).catch(updateMusicUI);
   }
 
   heroIntro();
+  setTimeout(heroFailsafe, 2800); // filet : jamais de hero blanc
+  if (hasGsap) ScrollTrigger.refresh();
 }
 
 if (overlay) {
   overlay.addEventListener('click', openInvitation);
   overlay.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault(); // l'espace ne doit pas faire défiler la page
-      openInvitation();
-    }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openInvitation(); }
   });
 } else {
   document.body.classList.remove('locked');
+  if (lenis) lenis.start();
 }
 
 if (audio && musicBtn) {
   audio.addEventListener('play', updateMusicUI);
   audio.addEventListener('pause', updateMusicUI);
-
   musicBtn.addEventListener('click', () => {
-    if (audio.paused) {
-      audio.muted = false;
-      audio.play().catch(() => { });
-    } else {
-      audio.pause();
-    }
+    if (audio.paused) { audio.muted = false; audio.play().catch(() => {}); }
+    else { audio.pause(); }
     updateMusicUI();
   });
 }
 
 /* ---------- Compte à rebours ---------- */
 
-// 26 septembre 2026, 20h00, heure tunisienne (UTC+1 toute l'année)
 const WEDDING_DATE = new Date('2026-09-26T20:00:00+01:00');
 
 function startCountdown() {
@@ -97,7 +118,17 @@ function startCountdown() {
     s: document.getElementById('cd-secs'),
   };
   const pad = (n) => String(n).padStart(2, '0');
+  const prev = {};
   let timer = null;
+
+  const set = (el, val) => {
+    if (!el || el.textContent === val) return;
+    el.textContent = val;
+    if (animate && heroIntroDone) {
+      gsap.fromTo(el, { yPercent: -45, opacity: 0.4 },
+        { yPercent: 0, opacity: 1, duration: 0.4, ease: 'power2.out', overwrite: true });
+    }
+  };
 
   const tick = () => {
     const left = WEDDING_DATE - Date.now();
@@ -106,10 +137,10 @@ function startCountdown() {
       if (timer) clearInterval(timer);
       return;
     }
-    num.d.textContent = String(Math.floor(left / 86400000));
-    num.h.textContent = pad(Math.floor(left / 3600000) % 24);
-    num.m.textContent = pad(Math.floor(left / 60000) % 60);
-    num.s.textContent = pad(Math.floor(left / 1000) % 60);
+    set(num.d, String(Math.floor(left / 86400000)));
+    set(num.h, pad(Math.floor(left / 3600000) % 24));
+    set(num.m, pad(Math.floor(left / 60000) % 60));
+    set(num.s, pad(Math.floor(left / 1000) % 60));
   };
 
   tick();
@@ -118,9 +149,7 @@ function startCountdown() {
 
 startCountdown();
 
-/* ---------- RSVP : formulaire intégré → Google Form ----------
-   Les réponses tombent dans votre Google Sheet sans que l'invité
-   ne quitte le site. Mode d'emploi complet dans le README. */
+/* ---------- RSVP : formulaire intégré → Google Form ---------- */
 
 const GOOGLE_FORM = {
   action: 'https://docs.google.com/forms/d/e/1FAIpQLSe_Rm8yV3Nh57kBmAzwuGEubrbuv47FEdbPymfEVgYQk3jg1A/formResponse',
@@ -139,11 +168,11 @@ let celebrating = false;
 if (rsvpForm) {
   rsvpForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    if (celebrating) return; // double clic : un seul envoi
+    if (celebrating) return;
     if (!rsvpForm.reportValidity()) return;
 
     const data = new FormData(rsvpForm);
-    if (data.get('_gotcha')) return; // robot pris au piège
+    if (data.get('_gotcha')) return;
 
     const values = {
       name: data.get('name') || '',
@@ -159,9 +188,7 @@ if (rsvpForm) {
       for (const [key, entry] of Object.entries(GOOGLE_FORM.fields)) {
         body.append(entry, values[key] || '');
       }
-      // no-cors : Google n'autorise pas la lecture de la réponse ;
-      // l'envoi part et la confirmation s'affiche dans la foulée
-      fetch(GOOGLE_FORM.action, { method: 'POST', mode: 'no-cors', body }).catch(() => { });
+      fetch(GOOGLE_FORM.action, { method: 'POST', mode: 'no-cors', body }).catch(() => {});
     } else {
       console.info('RSVP (mode démo, rien envoyé) :', values);
     }
@@ -176,9 +203,6 @@ if (rsvpForm) {
   });
 }
 
-/* Le panneau ne disparaît pas : le formulaire s'efface et le panneau se
-   resserre en douceur autour du remerciement, pendant qu'un petit rameau
-   d'olivier se dessine au-dessus du « Merci ». */
 function celebrate() {
   const form = document.getElementById('rsvp-form');
   const success = document.getElementById('rsvp-success');
@@ -194,9 +218,6 @@ function celebrate() {
   }
 
   celebrating = true;
-
-  // Hauteurs avant/après : on montre furtivement le remerciement pour
-  // mesurer la cible (tout est synchrone, rien n'est peint)
   const startH = card.offsetHeight;
   form.hidden = true; success.hidden = false;
   const endH = card.offsetHeight;
@@ -206,20 +227,16 @@ function celebrate() {
     onComplete: () => {
       gsap.set(card, { clearProps: 'height,overflow' });
       celebrating = false;
-      ScrollTrigger.refresh(); // la page a changé de hauteur
+      ScrollTrigger.refresh();
     },
   });
 
   tl.set(card, { height: startH, overflow: 'hidden' }, 0)
     .to(form, { opacity: 0, y: -12, duration: 0.35, ease: 'power1.in' }, 0)
     .to(card, { height: endH, duration: 0.75, ease: 'power3.inOut' }, 0.25)
-    .add(() => {
-      swap();
-      gsap.set(success, { opacity: 0, y: 16 });
-    }, 0.5)
+    .add(() => { swap(); gsap.set(success, { opacity: 0, y: 16 }); }, 0.5)
     .to(success, { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' }, 0.75);
 
-  // Le rameau du merci pousse
   const stem = success.querySelector('.dv-stem');
   if (stem) {
     const leaves = success.querySelectorAll('.dv-leaf');
@@ -233,14 +250,7 @@ function celebrate() {
   }
 }
 
-/* ============================================================
-   Les rameaux qui poussent (séparateurs SVG)
-   ------------------------------------------------------------
-   Le SVG est injecté par JS : une tige (pathLength=1 → dasharray
-   sans mesure), des feuilles ancrées sur la tige (data-o = point
-   d'attache pour svgOrigin) et quelques olives. Sans JS ou en
-   mouvement réduit, le rameau est simplement complet.
-   ============================================================ */
+/* ---------- Rameau qui pousse (remerciement RSVP) ---------- */
 
 const BRANCH_LEAVES = [
   [45, 25, 22], [81, 25, 148], [118, 27, 18], [154, 31, 152],
@@ -262,288 +272,327 @@ function branchSVG() {
     ${leaves}${olives}</svg>`;
 }
 
-document.querySelectorAll('.branch-divider').forEach((el) => {
-  el.innerHTML = branchSVG();
-});
+document.querySelectorAll('.branch-divider').forEach((el) => { el.innerHTML = branchSVG(); });
 
 /* ============================================================
-   Scénographie GSAP
+   Le ciel vivant : progression au scroll
+   ------------------------------------------------------------
+   Un seul « peintre » déterministe calcule une progression 0..1
+   depuis la position de défilement (bornes re-mesurées à chaque
+   refresh). On la donne au shader (window.__sky) ; si le WebGL
+   manque, on repeint #sky en couleur pleine — repli identique à
+   l'ancien ciel.
    ============================================================ */
 
-/* --- Entrée du hero, jouée à l'ouverture de l'invitation --- */
-
-let heroIntroPlayed = false;
-
-function heroIntro() {
-  if (!animate || heroIntroPlayed) { buildHeroParallax(); return; }
-  heroIntroPlayed = true;
-
-  const tl = gsap.timeline({
-    defaults: { ease: 'power3.out' },
-    onComplete: buildHeroParallax,
-  });
-
-  tl.from('.hero-garland--top', { yPercent: -45, autoAlpha: 0, duration: 1.5, ease: 'power2.out' }, 0)
-    .from('.hero-garland--bottom', { yPercent: 45, autoAlpha: 0, duration: 1.5, ease: 'power2.out' }, 0)
-    .from('.hero-kicker', { y: 18, autoAlpha: 0, duration: 0.8 }, 0.35)
-    .from('.hero-names', { y: 30, scale: 1.04, autoAlpha: 0, duration: 1.1 }, 0.5)
-    .from('.hero-rule', { scaleX: 0, duration: 0.9, ease: 'power2.inOut' }, 0.85)
-    .from('.hero-meta', { y: 14, autoAlpha: 0, duration: 0.8 }, 1.0)
-    .from('.cd-cell', { y: 18, autoAlpha: 0, duration: 0.7, stagger: 0.09 }, 1.15)
-    .from('.scroll-cue', { autoAlpha: 0, duration: 0.8 }, 1.7);
-}
-
-/* --- Les guirlandes s'écartent quand la soirée commence --- */
-
-let heroParallaxBuilt = false;
-
-function buildHeroParallax() {
-  if (!animate || heroParallaxBuilt) return;
-  heroParallaxBuilt = true;
-
-  gsap.fromTo('.hero-garland--top', { yPercent: 0 }, {
-    yPercent: -50,
-    ease: 'none',
-    scrollTrigger: { trigger: '#hero', start: 'top top', end: 'bottom 35%', scrub: true },
-  });
-  gsap.fromTo('.hero-garland--bottom', { yPercent: 0 }, {
-    yPercent: 50,
-    ease: 'none',
-    scrollTrigger: { trigger: '#hero', start: 'top top', end: 'bottom 35%', scrub: true },
-  });
-  gsap.to('.scroll-cue', {
-    autoAlpha: 0,
-    ease: 'none',
-    scrollTrigger: { trigger: '#hero', start: '4% top', end: '16% top', scrub: true },
-  });
-}
-
-/* --- Le ciel : de l'après-midi à la nuit --- */
-
-const DUSK_STOPS = [
-  ['#story', '#ECE2CB'],
-  ['#gallery', '#E6D3A9'],
-  ['#schedule', '#C5C8A2'],
-  ['#venue', '#A9B189'],
-  ['#rsvp', '#55603C'],
-  ['.footer', '#161A0F'],
+const SKY_STOPS = [
+  ['#story', 0.12], ['#gallery', 0.30], ['#schedule', 0.48],
+  ['#venue', 0.62], ['#rsvp', 0.82], ['.footer', 1.0],
 ];
 
-/* Un seul « peintre » plutôt qu'une chaîne de tweens : plusieurs tweens
-   scrubbés sur la même propriété se marchent dessus à chaque
-   ScrollTrigger.refresh() (le dernier ré-applique sa couleur de départ
-   — la page restait sombre après l'envoi du RSVP, qui change la hauteur
-   de la carte et déclenche un refresh). Ici la couleur est recalculée
-   depuis la position de défilement : déterministe, et les bornes sont
-   re-mesurées à chaque refresh, donc resize et reflows sont sans danger. */
-function buildDusk() {
-  const dusk = document.getElementById('dusk');
-  if (!dusk) return;
+// Palette (mêmes teintes que le shader) pour le repli couleur
+const SKY_RGB = [
+  [244, 239, 226], [236, 226, 203], [230, 211, 169], [197, 200, 162],
+  [169, 177, 137], [60, 68, 42], [14, 18, 9],
+];
+function skyFallbackColor(p) {
+  const t = Math.max(0, Math.min(1, p)) * 6;
+  const i = Math.min(5, Math.floor(t));
+  const f = t - i;
+  const a = SKY_RGB[i], b = SKY_RGB[i + 1];
+  const c = (j) => Math.round(a[j] + (b[j] - a[j]) * f);
+  return `rgb(${c(0)}, ${c(1)}, ${c(2)})`;
+}
 
-  const BASE = '#F4EFE2';
+function buildSky() {
+  const skyEl = document.getElementById('sky');
   let segments = [];
 
-  // Chaque section teinte le ciel pendant son arrivée dans le viewport
-  // (de 92 % à 38 % de la hauteur d'écran, comme avant)
   const measure = () => {
     const vh = window.innerHeight;
-    let previous = BASE;
+    let previous = 0;
     segments = [];
-    for (const [selector, color] of DUSK_STOPS) {
+    for (const [selector, value] of SKY_STOPS) {
       const section = document.querySelector(selector);
       if (!section) continue;
       const top = section.getBoundingClientRect().top + window.scrollY;
-      segments.push({ start: top - vh * 0.92, end: top - vh * 0.38, from: previous, to: color });
-      previous = color;
+      segments.push({ start: top - vh * 0.92, end: top - vh * 0.38, from: previous, to: value });
+      previous = value;
     }
   };
 
   const paint = () => {
     const y = window.scrollY;
-    let color = BASE;
+    let prog = 0;
     for (const seg of segments) {
       if (y <= seg.start) break;
-      color = y >= seg.end
-        ? seg.to
-        : gsap.utils.interpolate(seg.from, seg.to, (y - seg.start) / (seg.end - seg.start));
+      prog = y >= seg.end ? seg.to
+        : seg.from + (seg.to - seg.from) * ((y - seg.start) / (seg.end - seg.start));
     }
-    dusk.style.backgroundColor = color;
+    window.__skyProgress = prog;
+    if (window.__sky && window.__sky.active) window.__sky.setProgress(prog);
+    else if (skyEl) skyEl.style.backgroundColor = skyFallbackColor(prog);
   };
 
-  ScrollTrigger.create({
-    start: 0,
-    end: 'max',
-    onUpdate: paint,
-    onRefresh: () => { measure(); paint(); },
-  });
+  if (hasGsap) {
+    ScrollTrigger.create({ start: 0, end: 'max', onUpdate: paint, onRefresh: () => { measure(); paint(); } });
+  } else {
+    measure(); paint();
+    window.addEventListener('scroll', paint, { passive: true });
+    window.addEventListener('resize', () => { measure(); paint(); });
+  }
 }
 
-/* --- Les rameaux poussent entre les sections --- */
+/* ============================================================
+   Scénographie GSAP
+   ============================================================ */
 
-function buildDividers() {
-  document.querySelectorAll('.branch-divider').forEach((div) => {
-    if (div.closest('#rsvp-success')) return; // celui-là pousse dans celebrate()
-    const stem = div.querySelector('.dv-stem');
-    if (!stem) return;
+/* --- Entrée du hero, jouée à l'ouverture --- */
 
-    const tl = gsap.timeline({
-      scrollTrigger: { trigger: div, start: 'top 96%', end: 'top 52%', scrub: 0.5 },
-    });
-    tl.fromTo(stem, { strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 0.65, ease: 'none' }, 0);
-    div.querySelectorAll('.dv-leaf').forEach((leaf, i) => {
-      tl.fromTo(leaf, { scale: 0, svgOrigin: leaf.dataset.o },
-        { scale: 1, duration: 0.16, ease: 'back.out(2)' }, 0.06 + i * 0.045);
-    });
-    tl.fromTo(div.querySelectorAll('.dv-olive'),
-      { opacity: 0, scale: 0.4, transformOrigin: '50% 50%' },
-      { opacity: 1, scale: 1, duration: 0.18, stagger: 0.06 }, 0.62);
-  });
+function heroIntro() {
+  if (!animate || heroIntroPlayed) { heroIntroDone = true; return; }
+  heroIntroPlayed = true;
+
+  const names = document.querySelector('.hero-names');
+  let lines = [];
+  if (names && hasSplit) {
+    try {
+      heroSplit = SplitText.create(names, { type: 'lines', mask: 'lines', linesClass: 'sl' });
+      lines = heroSplit.lines;
+      gsap.set(names, { opacity: 1 });
+    } catch (e) { gsap.set(names, { opacity: 1 }); }
+  } else if (names) { gsap.set(names, { opacity: 1 }); }
+
+  const tl = gsap.timeline({ defaults: { ease: 'power3.out' }, onComplete: () => { heroIntroDone = true; } });
+
+  tl.from('.hero-media', { scale: 1.16, autoAlpha: 0, duration: 1.7, ease: 'power2.out' }, 0)
+    .fromTo('.hero-kicker', { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.9 }, 0.4);
+
+  if (lines.length) tl.from(lines, { yPercent: 120, opacity: 0, duration: 1.1, stagger: 0.12, ease: 'power4.out' }, 0.55);
+  else tl.fromTo('.hero-names', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 1.1 }, 0.55);
+
+  tl.fromTo('.hero-rule', { opacity: 0, scaleX: 0 }, { opacity: 1, scaleX: 1, duration: 0.9, ease: 'power2.inOut' }, 0.95)
+    .fromTo('.hero-meta', { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.8 }, 1.05)
+    .set('#hero-countdown', { opacity: 1 }, 1.1)
+    .fromTo('.cd-cell', { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.7, stagger: 0.09 }, 1.15)
+    .fromTo('.scroll-cue', { opacity: 0 }, { opacity: 1, duration: 0.8 }, 1.7);
 }
 
-/* --- Apparitions douces (une seule fois) --- */
+function heroFailsafe() {
+  if (heroIntroDone || !hasGsap) return;
+  heroIntroDone = true;
+  gsap.set('#hero .reveal-fade, #hero .reveal-line, #hero-countdown, .scroll-cue',
+    { opacity: 1, y: 0, clearProps: 'visibility' });
+  gsap.set('.hero-names', { opacity: 1 });
+  gsap.set('.hero-media', { clearProps: 'all' });
+  if (heroSplit) { try { gsap.set(heroSplit.lines, { yPercent: 0, opacity: 1 }); } catch (e) {} }
+}
 
-function revealUp(targets, trigger, options = {}) {
-  const els = gsap.utils.toArray(targets);
-  if (!els.length) return;
-  gsap.from(els, {
-    y: options.y ?? 32,
-    autoAlpha: 0,
-    duration: options.duration ?? 1,
-    ease: 'power3.out',
-    stagger: options.stagger ?? 0.12,
-    scrollTrigger: {
-      trigger: trigger,
-      start: options.start ?? 'top 78%',
-      once: true,
-    },
-  });
+/* --- Révélations douces (une seule fois) --- */
+
+function reveal(el, opts = {}) {
+  if (!el) return;
+  gsap.fromTo(el, { opacity: 0, y: opts.y ?? 30 },
+    { opacity: 1, y: 0, duration: opts.d ?? 1, ease: 'power3.out',
+      scrollTrigger: { trigger: opts.trigger || el, start: opts.start || 'top 84%', once: true } });
+}
+
+function splitReveal(el, opts = {}) {
+  if (!el) return;
+  if (!hasSplit) { el.style.opacity = '1'; return; }
+  try {
+    const split = SplitText.create(el, { type: 'lines', mask: 'lines', linesClass: 'sl' });
+    gsap.set(el, { opacity: 1 });
+    gsap.from(split.lines, {
+      yPercent: 118, opacity: 0, duration: 1.05, ease: 'power4.out', stagger: 0.13,
+      scrollTrigger: { trigger: opts.trigger || el, start: opts.start || 'top 84%', once: true },
+      onComplete: () => { try { split.revert(); } catch (e) {} },
+    });
+  } catch (e) { el.style.opacity = '1'; }
 }
 
 function buildReveals() {
-  revealUp('#story .eyebrow, #story .section-title', '#story');
-  document.querySelectorAll('#story .chapter').forEach((c) => revealUp(c, c, { start: 'top 85%' }));
+  document.querySelectorAll('.reveal-fade, .reveal-line').forEach((el) => {
+    if (el.closest('#hero')) return;
+    reveal(el, { y: el.classList.contains('reveal-line') ? 14 : 30 });
+  });
+  document.querySelectorAll('[data-split]').forEach((el) => {
+    if (el.closest('#hero')) return;
+    splitReveal(el, { start: el.closest('.footer') ? 'top 78%' : 'top 84%' });
+  });
 
-  revealUp('#gallery .eyebrow, #gallery .section-title', '#gallery');
-  document.querySelectorAll('.gallery-figure').forEach((f) => revealUp(f, f, { y: 44, start: 'top 88%' }));
+  document.querySelectorAll('.tl-item').forEach((item) => {
+    reveal(item.querySelector('.tl-body'), { trigger: item, y: 34, start: 'top 82%' });
+    const year = item.querySelector('.tl-year');
+    if (year) gsap.fromTo(year, { opacity: 0, y: 46, scale: 0.9 },
+      { opacity: 0.85, y: 0, scale: 1, duration: 1.2, ease: 'power3.out',
+        scrollTrigger: { trigger: item, start: 'top 86%', once: true } });
+  });
 
-  revealUp('#schedule .eyebrow, #schedule .section-title, #schedule .section-sub', '#schedule');
-  document.querySelectorAll('.moment').forEach((m) => revealUp(m, m, { start: 'top 85%' }));
-
-  revealUp('#venue .eyebrow, #venue .section-title', '#venue');
-  revealUp('.venue-photo', '.venue-body', { y: 40 });
-  revealUp('.venue-note, .map-frame, .map-actions', '.venue-body', { start: 'top 72%' });
-
-  revealUp('.rsvp-panel', '#rsvp', { y: 48, start: 'top 82%' });
-  revealUp('.footer-content', '.footer', { y: 36, start: 'top 62%' });
+  document.querySelectorAll('.gallery-figure').forEach((f) => reveal(f, { y: 46, start: 'top 88%' }));
+  document.querySelectorAll('.moment').forEach((m) => reveal(m, { y: 26, start: 'top 86%' }));
 }
 
-/* --- Parallaxes : branches, photos, arche --- */
+/* --- Parallaxes & fils d'or --- */
 
 function buildParallax() {
-  const drift = (target, trigger, fromY, toY, extra = {}) => {
-    const el = document.querySelector(target);
+  const drift = (sel, trig, from, to, extra = {}) => {
+    const el = document.querySelector(sel);
     if (!el) return;
-    gsap.fromTo(el, { y: fromY, ...extra.from }, {
-      y: toY,
-      ...extra.to,
-      ease: 'none',
-      scrollTrigger: { trigger: trigger, start: 'top bottom', end: 'bottom top', scrub: true },
-    });
+    gsap.fromTo(el, { y: from, ...extra.from },
+      { y: to, ...extra.to, ease: 'none',
+        scrollTrigger: { trigger: trig, start: 'top bottom', end: 'bottom top', scrub: true } });
   };
+  drift('.story-branch', '#story', 80, -80, { from: { rotation: 3 }, to: { rotation: -4 } });
+  drift('.schedule-branch', '#schedule', 60, -40, { from: { rotation: 16 }, to: { rotation: 10 } });
 
-  drift('.story-branch', '#story', 70, -70, { from: { rotation: 2 }, to: { rotation: -3 } });
-  drift('.gallery-branch', '#gallery', 40, -40);
-  drift('.schedule-branch', '#schedule', 50, -30);
-
-  // Les photos dérivent dans leur passe-partout (elles sont sur-échelonnées en CSS)
   document.querySelectorAll('.gallery-photo img, .venue-photo img').forEach((img) => {
-    gsap.fromTo(img, { yPercent: 4.5 }, {
-      yPercent: -4.5,
-      ease: 'none',
-      scrollTrigger: { trigger: img.closest('figure, .venue-photo'), start: 'top bottom', end: 'bottom top', scrub: true },
-    });
+    gsap.fromTo(img, { yPercent: 5 }, { yPercent: -5, ease: 'none',
+      scrollTrigger: { trigger: img.closest('figure, .venue-photo'), start: 'top bottom', end: 'bottom top', scrub: true } });
   });
+
+  // Le hero se soulève et s'efface pour révéler le ciel vivant
+  gsap.to('.hero-media', { yPercent: -12, scale: 1.14, autoAlpha: 0, ease: 'none',
+    scrollTrigger: { trigger: '#hero', start: 'top top', end: 'bottom top', scrub: true } });
 }
 
-/* --- Le fil d'or du programme --- */
-
-function buildScheduleRail() {
+function buildRails() {
+  const sr = document.querySelector('.story-rail');
+  if (sr) gsap.fromTo(sr, { scaleY: 0 }, { scaleY: 1, ease: 'none',
+    scrollTrigger: { trigger: '.timeline', start: 'top 80%', end: 'bottom 60%', scrub: 0.6 } });
   const rail = document.querySelector('.schedule-rail');
-  if (!rail) return;
-  gsap.fromTo(rail, { scaleY: 0 }, {
-    scaleY: 1,
-    ease: 'none',
-    scrollTrigger: { trigger: '.schedule-list', start: 'top 78%', end: 'bottom 55%', scrub: 0.6 },
+  if (rail) gsap.fromTo(rail, { scaleY: 0 }, { scaleY: 1, ease: 'none',
+    scrollTrigger: { trigger: '.schedule-list', start: 'top 78%', end: 'bottom 60%', scrub: 0.6 } });
+}
+
+/* --- Curseur sur-mesure + boutons magnétiques --- */
+
+function buildCursor() {
+  if (!finePointer || reduced) return;
+  const cur = document.getElementById('cursor');
+  if (!cur) return;
+  const dot = cur.querySelector('.cursor-dot');
+  const ring = cur.querySelector('.cursor-ring');
+  root.classList.add('has-cursor');
+
+  let mx = window.innerWidth / 2, my = window.innerHeight / 2, rx = mx, ry = my;
+  window.addEventListener('mousemove', (e) => {
+    mx = e.clientX; my = e.clientY;
+    dot.style.transform = `translate3d(${mx}px, ${my}px, 0) translate(-50%, -50%)`;
+  }, { passive: true });
+
+  const tick = () => {
+    rx += (mx - rx) * 0.18; ry += (my - ry) * 0.18;
+    ring.style.transform = `translate3d(${rx}px, ${ry}px, 0) translate(-50%, -50%)`;
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+
+  document.querySelectorAll('a, button, [role="button"], .magnetic, .pill, input, textarea').forEach((el) => {
+    el.addEventListener('mouseenter', () => root.classList.add('cursor-hover'));
+    el.addEventListener('mouseleave', () => root.classList.remove('cursor-hover'));
   });
 }
 
-/* --- Le finale : les lanternes s'élèvent --- */
+function buildMagnetic() {
+  if (!finePointer || !animate) return;
+  document.querySelectorAll('.magnetic').forEach((el) => {
+    el.addEventListener('mousemove', (e) => {
+      const r = el.getBoundingClientRect();
+      gsap.to(el, { x: (e.clientX - (r.left + r.width / 2)) * 0.3,
+        y: (e.clientY - (r.top + r.height / 2)) * 0.4, duration: 0.4, ease: 'power3.out' });
+    });
+    el.addEventListener('mouseleave', () => gsap.to(el, { x: 0, y: 0, duration: 0.6, ease: 'elastic.out(1, 0.4)' }));
+  });
+}
+
+/* --- Le finale : les lanternes s'élèvent dans la nuit --- */
 
 function buildLanterns() {
+  const field = document.querySelector('.lantern-field');
   const footer = document.querySelector('.footer');
-  if (!footer) return;
+  if (!field || !footer) return;
 
-  gsap.fromTo('.lanterns-sky', { autoAlpha: 0, y: 70 }, {
-    autoAlpha: 0.5,
-    y: 0,
-    ease: 'none',
-    scrollTrigger: { trigger: footer, start: 'top 90%', end: 'top 15%', scrub: true },
+  const N = window.innerWidth < 640 ? 10 : 18;
+  const frag = document.createDocumentFragment();
+  const items = [];
+
+  for (let i = 0; i < N; i++) {
+    const depth = Math.random();               // 0 = loin, 1 = proche
+    const w = 34 + depth * 92;                  // 34–126px
+    const x = Math.random() * 96 + 2;
+    const el = document.createElement('div');
+    el.className = 'f-lantern';
+    el.style.setProperty('--x', x + '%');
+    el.style.setProperty('--w', w + 'px');
+    el.style.opacity = String(0.4 + depth * 0.6);
+    el.style.filter = `drop-shadow(0 0 ${16 + depth * 26}px rgba(216,156,85,.5)) blur(${(1 - depth) * 1.4}px)`;
+    el.innerHTML = '<div class="lantern-body"></div>';
+    frag.appendChild(el);
+    items.push({ el, speed: 0.6 + depth * 1.1 });
+  }
+  field.appendChild(frag);
+
+  const rsvp = document.querySelector('#rsvp') || footer;
+
+  if (!animate) {
+    // Statique : lanternes déjà montées, plan visible seulement au finale
+    field.classList.add('lantern-static');
+    items.forEach(({ el }) => { el.style.transform = `translateY(${-window.innerHeight * (0.2 + Math.random() * 0.6)}px)`; });
+    const io = new IntersectionObserver(
+      (entries) => entries.forEach((e) => { field.style.opacity = e.isIntersecting ? '1' : '0'; }),
+      { threshold: 0 });
+    io.observe(footer);
+    return;
+  }
+
+  // Le plan apparaît pendant la transition RSVP → finale, puis reste
+  gsap.fromTo(field, { autoAlpha: 0 }, {
+    autoAlpha: 1, ease: 'none',
+    scrollTrigger: { trigger: rsvp, start: 'top 65%', end: 'top 5%', scrub: true },
   });
 
   const sways = [];
-
-  document.querySelectorAll('.f-lantern').forEach((lantern) => {
-    const speed = parseFloat(lantern.dataset.speed || '1');
-
-    // La montée, liée au défilement
-    gsap.fromTo(lantern, { y: 120 }, {
-      y: () => -window.innerHeight * 0.85 * speed,
-      ease: 'none',
-      scrollTrigger: {
-        trigger: footer,
-        start: 'top 95%',
-        end: 'bottom bottom',
-        scrub: 1,
-        invalidateOnRefresh: true,
-      },
+  items.forEach(({ el, speed }) => {
+    // Montée continue sur toute la traversée des deux dernières sections,
+    // dans un plan fixe : aucune coupure à la frontière RSVP / finale
+    gsap.fromTo(el, { y: 60 }, {
+      y: () => -window.innerHeight * speed, ease: 'none',
+      scrollTrigger: { trigger: rsvp, start: 'top bottom', endTrigger: footer, end: 'bottom bottom', scrub: 1, invalidateOnRefresh: true },
     });
-
-    // La dérive du vent, continue
-    sways.push(gsap.to(lantern, {
-      x: gsap.utils.random(-26, 26),
-      rotation: gsap.utils.random(-4, 4),
-      duration: gsap.utils.random(3.2, 5.6),
-      ease: 'sine.inOut',
-      yoyo: true,
-      repeat: -1,
-      paused: true,
+    sways.push(gsap.to(el, {
+      x: gsap.utils.random(-30, 30), rotation: gsap.utils.random(-5, 5),
+      duration: gsap.utils.random(3.2, 6), ease: 'sine.inOut', yoyo: true, repeat: -1, paused: true,
     }));
   });
 
-  // Le vent ne souffle que quand le finale est visible : inutile de
-  // faire tourner des tweens infinis pendant tout le reste de la visite
+  // Le vent ne souffle que dans la zone du finale (RSVP → bas de page)
   ScrollTrigger.create({
-    trigger: footer,
-    start: 'top bottom',
-    end: 'bottom top',
+    trigger: rsvp, start: 'top center', endTrigger: footer, end: 'bottom top',
     onToggle: (self) => sways.forEach((s) => (self.isActive ? s.play() : s.pause())),
   });
 }
 
 /* ---------- Init ---------- */
 
+buildCursor();
+
 window.addEventListener('load', () => {
-  if (!animate) return;
-  buildDusk();
-  buildDividers();
-  buildReveals();
-  buildParallax();
-  buildScheduleRail();
-  buildLanterns();
-  ScrollTrigger.refresh();
+  try {
+    buildSky();
+    if (animate) {
+      buildReveals();
+      buildParallax();
+      buildRails();
+      buildMagnetic();
+    }
+    buildLanterns();
+    if (hasGsap) ScrollTrigger.refresh();
+  } catch (err) {
+    console.warn('[init] fallback, révélation complète :', err);
+    root.classList.remove('js-anim'); // rien ne reste caché
+  }
 });
 
-// Re-mesurer quand les polices finissent d'arriver
 if (hasGsap && document.fonts && document.fonts.ready) {
   document.fonts.ready.then(() => ScrollTrigger.refresh());
 }
