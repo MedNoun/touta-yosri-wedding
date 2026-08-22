@@ -1,2 +1,10 @@
-# Notes de dépôt d'assets
+# Le site ne sert que assets/img/ (généré par tools/build-images.mjs)
+# et la musique. Les originaux et les planches d'artwork restent dans
+# le dépôt — ils ne partent pas en production.
+assets/botanicals/
+assets/lanterns/
+assets/web/
+assets/photos/
+assets/mimosa/
 assets/**/METTEZ-VOTRE-*.txt
+tools/
