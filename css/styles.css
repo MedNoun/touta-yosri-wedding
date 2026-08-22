@@ -95,6 +95,7 @@
 
   --ease-lux:  cubic-bezier(.19, 1, .22, 1);
   --ease-soft: cubic-bezier(.4, 0, .2, 1);
+  --ease-out:  cubic-bezier(.21, .72, .35, 1);
 }
 
 /* ============================================================
@@ -1042,25 +1043,36 @@ main { position: relative; }
 
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
 
-.rsvp-panel.is-closing { transition: height .78s var(--ease-lux); }
+.rsvp-panel.is-closing { transition: height .76s cubic-bezier(.4, .04, .24, 1); }
 .rsvp-form,
-.rsvp-text { transition: opacity .3s ease, transform .3s ease; }
+.rsvp-text { transition: opacity .16s var(--ease-soft), transform .16s var(--ease-soft); }
 .rsvp-form.is-out,
-.rsvp-text.is-out { opacity: 0; transform: translateY(-10px); }
+.rsvp-text.is-out { opacity: 0; transform: translateY(-8px); }
 
 .rsvp-success { display: grid; gap: var(--s3); justify-items: center; text-align: center; }
-.rsvp-success { opacity: 0; transform: translateY(14px); }
+.rsvp-success { opacity: 0; transform: translateY(16px); }
 .rsvp-success.is-in {
   opacity: 1;
   transform: none;
-  transition: opacity .6s var(--ease-lux) .1s, transform .6s var(--ease-lux) .1s;
+  transition: opacity .55s var(--ease-out), transform .65s var(--ease-out);
 }
-.rsvp-success .crest { transform: scale(.86); opacity: 0; }
+.rsvp-success .crest { transform: scale(.84) rotate(-4deg); opacity: 0; }
 .rsvp-success.is-in .crest {
-  transform: scale(1);
+  transform: scale(1) rotate(0deg);
   opacity: 1;
-  transition: transform .7s var(--ease-lux) .25s, opacity .7s ease .25s;
+  transition:
+    transform .8s cubic-bezier(.2, 1.3, .4, 1) .14s,
+    opacity .55s var(--ease-out) .14s;
 }
+.rsvp-success-title,
+.rsvp-success-text { opacity: 0; transform: translateY(10px); }
+.rsvp-success.is-in .rsvp-success-title,
+.rsvp-success.is-in .rsvp-success-text {
+  opacity: 1;
+  transform: none;
+  transition: opacity .5s var(--ease-out) var(--sd2, .24s), transform .55s var(--ease-out) var(--sd2, .24s);
+}
+.rsvp-success.is-in .rsvp-success-text { --sd2: .34s; }
 .rsvp-success .crest { width: 10rem; color: var(--clay); }
 .rsvp-success .crest svg { width: 100%; height: auto; display: block; overflow: visible; }
 .rsvp-success-title { font-family: var(--font-display); font-size: clamp(2rem, 6vw, 2.75rem); color: var(--ink); }
@@ -1153,21 +1165,122 @@ main { position: relative; }
   text-transform: uppercase;
   color: #E5A16C;
 }
-.finale-pair {
+/* ============================================================
+   LE FINALE — Eya & Yosri lâchent une lanterne
+   ------------------------------------------------------------
+   Un cycle de 11 s, partagé par toutes les pièces mobiles :
+
+     0,0–2,9 s   ils regardent devant
+     2,9–4,0 s   le bras intérieur se lève
+     4,0–7,7 s   la lanterne s'élève, les têtes la suivent
+     7,7–11 s    retour au calme
+
+   Tout est en `transform` et `opacity`, sur des animations CSS :
+   le compositeur s'en charge et aucune boucle JS ne tourne.
+   `transform-box: fill-box` permet de donner une origine relative
+   à chaque pièce SVG plutôt qu'au repère du dessin entier.
+   ============================================================ */
+
+.finale-scene {
   margin-top: var(--s3);
   width: min(11.5rem, 46vw);
-  /* Ils sont posés sur l'horizon, pas en suspension : une ombre
-     portée courte et large les rattache au sol. */
+}
+.finale-pair {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  /* leurs bras intérieurs se touchent presque */
+  gap: 0;
+  /* Posés sur l'horizon, pas en suspension. */
   filter: drop-shadow(0 6px 10px rgba(12, 8, 6, .55));
 }
-.pixel-pair { width: 100%; height: auto; display: block; }
-.pixel-pair use:first-child { animation: bob 4.6s var(--ease-soft) infinite; }
-.pixel-pair use:last-child  { animation: bob 4.6s var(--ease-soft) -2.3s infinite; }
 
+.masc { width: 52%; height: auto; display: block; overflow: visible; }
+.masc--a { margin-right: -8%; z-index: 2; }
+.masc--b { margin-left: -8%; }
+
+.masc,
+.masc * { transform-box: fill-box; }
+
+/* --- respiration : les deux, en opposition de phase --- */
+.masc--a .m-inner { animation: bob 5.4s var(--ease-soft) infinite; }
+.masc--b .m-inner { animation: bob 5.4s var(--ease-soft) -2.7s infinite; }
 @keyframes bob {
   0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-1.6px); }
+  50%      { transform: translateY(-1.5px); }
 }
+
+/* --- clignement : deux rythmes premiers entre eux, donc jamais
+       synchronisés --- */
+.m-eyes { transform-origin: 50% 50%; }
+.masc--a .m-eyes { animation: blink 6.1s steps(1, end) infinite; }
+.masc--b .m-eyes { animation: blink 7.9s steps(1, end) -3.4s infinite; }
+@keyframes blink {
+  0%, 95%   { transform: scaleY(1); }
+  96%, 98%  { transform: scaleY(.08); }
+  99%, 100% { transform: scaleY(1); }
+}
+
+/* --- ils suivent la lanterne des yeux --- */
+.m-head { transform-origin: 50% 100%; }
+.masc--a .m-head { animation: gaze 11s var(--ease-soft) infinite; }
+.masc--b .m-head { animation: gaze 11s var(--ease-soft) .35s infinite; }
+@keyframes gaze {
+  0%, 24%   { transform: rotate(0deg) translateY(0); }
+  40%, 62%  { transform: rotate(-6deg) translateY(-1px); }
+  80%, 100% { transform: rotate(0deg) translateY(0); }
+}
+
+/* --- le bras intérieur se lève pour lâcher --- */
+.masc--a .m-arm--r,
+.masc--b .m-arm--l { transform-origin: 50% 4%; }
+.masc--a .m-arm--r { animation: raise 11s var(--ease-soft) infinite; }
+.masc--b .m-arm--l { animation: raise 11s var(--ease-soft) .2s infinite; }
+@keyframes raise {
+  0%, 22%   { transform: rotate(0deg) translateY(0); }
+  34%, 48%  { transform: rotate(-26deg) translateY(-2px); }
+  62%, 100% { transform: rotate(0deg) translateY(0); }
+}
+.masc--b .m-arm--l { animation-name: raise-mirror; }
+@keyframes raise-mirror {
+  0%, 22%   { transform: rotate(0deg) translateY(0); }
+  34%, 48%  { transform: rotate(26deg) translateY(-2px); }
+  62%, 100% { transform: rotate(0deg) translateY(0); }
+}
+
+/* --- le bouquet respire dans sa main --- */
+.m-bouquet {
+  transform-origin: 50% 90%;
+  animation: bouquet 4.6s var(--ease-soft) infinite alternate;
+}
+@keyframes bouquet {
+  from { transform: rotate(-3deg); }
+  to   { transform: rotate(3deg); }
+}
+
+/* --- la lanterne qu'ils viennent de lâcher --- */
+.released {
+  position: absolute;
+  left: 50%;
+  bottom: 40%;
+  width: 13%;
+  height: auto;
+  overflow: visible;
+  opacity: 0;
+  animation: let-go 11s var(--ease-soft) infinite;
+  filter: drop-shadow(0 0 9px rgba(255, 196, 118, .75));
+}
+/* Elle monte sur la ligne médiane — le couloir libre entre les deux
+   têtes — puis dérive à peine, comme prise par l'air. */
+@keyframes let-go {
+  0%, 24%   { opacity: 0; transform: translate(-50%, 4px) scale(.5); }
+  32%       { opacity: 1; transform: translate(-50%, -6px) scale(.66); }
+  50%       { opacity: 1; transform: translate(-50%, -52px) scale(.82); }
+  70%       { opacity: .9; transform: translate(-54%, -112px) scale(.92); }
+  88%, 100% { opacity: 0; transform: translate(-58%, -178px) scale(1); }
+}
+.released .flame { transform-origin: 30px 62px; animation: flicker 2.2s var(--ease-soft) infinite; }
 
 .footer-credit {
   margin-top: var(--s4);
@@ -1197,9 +1310,32 @@ main { position: relative; }
   initial-value: 0%;
 }
 
+/* ------------------------------------------------------------------
+   Révélations, calibrées sur la taille.
+
+   Un élément plus haut que ~60 % de l'écran ne peut pas glisser
+   proprement : pendant que vous descendez dedans, il est encore en
+   train de changer, et le contenu se bat avec votre défilement. La
+   classe .is-big est posée par js/main.js d'après la hauteur mesurée
+   — plus c'est grand, moins ça bouge et plus vite ça se pose.
+   ------------------------------------------------------------------ */
 html.js-anim .reveal {
   opacity: 0;
-  transform: translate3d(0, 26px, 0);
+  transform: translate3d(0, 18px, 0);
+}
+html.js-anim .reveal.is-in {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity .62s var(--ease-out) var(--rd, 0s),
+    transform .7s var(--ease-out) var(--rd, 0s);
+}
+
+html.js-anim .reveal.is-big { transform: translate3d(0, 8px, 0); }
+html.js-anim .reveal.is-big.is-in {
+  transition:
+    opacity .46s var(--ease-out) var(--rd, 0s),
+    transform .52s var(--ease-out) var(--rd, 0s);
 }
 
 /* Les titres se dévoilent au balayage plutôt qu'en fondu : c'est le
@@ -1211,15 +1347,9 @@ html.js-anim [data-split] {
 }
 html.js-anim [data-split].is-in {
   --wipe: 130%;
-  transition: --wipe 1.15s var(--ease-lux) var(--rd, 0s);
+  transition: --wipe 1.15s var(--ease-out) var(--rd, 0s);
 }
-html.js-anim .reveal.is-in {
-  opacity: 1;
-  transform: none;
-  transition:
-    opacity .85s var(--ease-lux) var(--rd, 0s),
-    transform .85s var(--ease-lux) var(--rd, 0s);
-}
+
 html.js-anim .hero-name,
 html.js-anim .hero-amp,
 html.js-anim .hero-plate,
@@ -1237,14 +1367,14 @@ html.js-anim.is-open .hero .reveal {
   opacity: 1;
   transform: none;
   transition:
-    opacity 1s var(--ease-lux) var(--d, 0s),
-    transform 1.1s var(--ease-lux) var(--d, 0s);
+    opacity 1s var(--ease-out) var(--d, 0s),
+    transform 1.1s var(--ease-out) var(--d, 0s);
 }
 html.js-anim.is-open .hero-amp {
   opacity: 1;
   scale: 1;
   transition:
-    opacity .8s var(--ease-lux) var(--d, 0s),
+    opacity .8s var(--ease-out) var(--d, 0s),
     scale .8s var(--ease-lux) var(--d, 0s);
 }
 
@@ -1268,8 +1398,11 @@ html.js-anim .scroll-cue   { --d: 1.15s; }
   .sky-stars canvas,
   .lantern .flame,
   .lantern > svg,
-  .pixel-pair use { animation: none; }
-  .cd-num.is-tick { animation: none; }
+    .cd-num.is-tick { animation: none; }
+  .rsvp-success,
+  .rsvp-success .crest,
+  .rsvp-success-title,
+  .rsvp-success-text { opacity: 1 !important; transform: none !important; }
   html.js-anim [data-split] { -webkit-mask-image: none; mask-image: none; }
   html.js-anim .hero-plate,
   html.js-anim .hero-name,

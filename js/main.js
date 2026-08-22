@@ -158,15 +158,47 @@
       .filter((el) => !el.closest('#hero'));
     if (!items.length) return;
 
+    /* Le décalage est pris sur l'ordre du DOM chez le parent, PAS sur
+       l'ordre d'arrivée dans le lot de l'observateur : les lots ne sont
+       pas déterministes, donc le même escalier changeait d'un
+       défilement à l'autre. */
+    for (const el of items) {
+      const sibs = [...el.parentElement.children].filter((c) => c.classList.contains('reveal'));
+      const i = Math.max(0, sibs.indexOf(el));
+      el.style.setProperty('--rd', Math.min(i, 4) * 65 + 'ms');
+    }
+
+    const release = (el) => { el.style.willChange = 'auto'; };
+
     const io = new IntersectionObserver((entries, obs) => {
-      let n = 0;
       for (const e of entries) {
         if (!e.isIntersecting) continue;
-        e.target.style.setProperty('--rd', (n++ * 80) + 'ms');
-        e.target.classList.add('is-in');
-        obs.unobserve(e.target);
+        const el = e.target;
+        obs.unobserve(el);
+
+        /* Plus grand que ~60 % de l'écran : il ne glissera pas, il se
+           posera. Mesuré ici plutôt qu'écrit à la main, pour que ça
+           reste vrai à toutes les largeurs. */
+        if (e.boundingClientRect.height > innerHeight * 0.6) el.classList.add('is-big');
+
+        el.style.willChange = 'opacity, transform';
+        // une image de battement : l'état de départ ET la promotion
+        // sont enregistrés avant que la transition ne parte
+        requestAnimationFrame(() => el.classList.add('is-in'));
+
+        let done = false;
+        const finish = () => { if (done) return; done = true; release(el); };
+        el.addEventListener('transitionend', finish, { once: true });
+        setTimeout(finish, 2200);
       }
-    }, { rootMargin: '0px 0px -10% 0px', threshold: 0.01 });
+    }, {
+      /* Marge basse POSITIVE : la révélation part juste AVANT que
+         l'élément n'entre, donc il arrive déjà en mouvement au lieu de
+         démarrer sous les yeux du lecteur. C'était l'inverse (-10 %),
+         et c'est ce qui donnait l'impression que ça accrochait. */
+      rootMargin: '0px 0px 8% 0px',
+      threshold: 0,
+    });
 
     for (const el of items) io.observe(el);
   }
@@ -318,9 +350,31 @@
     });
   }
 
-  /* La carte se referme sur le remerciement. On mesure la hauteur
-     d'arrivée avant d'animer, puis une transition CSS fait le trajet :
-     pas de tween JS, donc aucune boucle ouverte. */
+  /* La carte se referme sur le remerciement.
+
+     LE BOGUE QUI RENDAIT ÇA INSTANTANÉ : on retirait `hidden` du bloc
+     de remerciement ET on posait `.is-in` dans la même image. Un
+     élément qui passe de `display: none` à `display: grid` n'a pas
+     d'état de départ enregistré — le navigateur n'a rien d'où partir,
+     donc il n'y a pas de transition, juste un saut. Il faut forcer un
+     recalcul de style ENTRE les deux (le `void offsetHeight`), puis
+     poser la classe à l'image suivante.
+
+     LE SECOND BOGUE : le formulaire s'effaçait d'abord (300 ms) et la
+     hauteur ne partait qu'ensuite. Résultat, une carte vide de 800 px
+     pendant près d'un demi-tour de seconde. La carte se referme
+     maintenant DÈS le premier instant, et le remerciement monte pendant
+     qu'elle se referme — les deux gestes se croisent au lieu de se
+     suivre.
+
+     Chorégraphie :
+       0 ms    le formulaire s'efface ET la carte commence à se refermer
+       125 ms  bascule ; le remerciement monte en fondu, chevauchant
+               la fin de l'effacement du formulaire
+       ~950 ms les deux gestes arrivent ensemble
+       1250 ms nettoyage, will-change relâché  */
+  const T = { swap: 125, tail: 1260 };
+
   function celebrate() {
     const form = document.getElementById('rsvp-form');
     const success = document.getElementById('rsvp-success');
@@ -338,8 +392,8 @@
 
     sending = true;
 
-    // Mesure : hauteur de départ, puis hauteur d'arrivée, puis retour
-    // à l'état de départ pour pouvoir transiter entre les deux.
+    // Mesure : hauteur de départ, hauteur d'arrivée, puis retour à
+    // l'état de départ pour pouvoir transiter entre les deux.
     const startH = card.offsetHeight;
     swap();
     const endH = card.offsetHeight;
@@ -349,25 +403,35 @@
 
     card.style.height = startH + 'px';
     card.style.overflow = 'hidden';
+    card.style.willChange = 'height';
+    void card.offsetHeight;                    // état de départ enregistré
 
     requestAnimationFrame(() => {
       card.classList.add('is-closing');
       form.classList.add('is-out');
       if (intro) intro.classList.add('is-out');
+      // La carte se referme immédiatement. overflow:hidden rogne le
+      // formulaire pendant qu'il s'efface, ce qui se lit comme la carte
+      // qui se referme dessus.
+      card.style.height = endH + 'px';
 
       setTimeout(() => {
         swap();
-        success.classList.add('is-in');
-        card.style.height = endH + 'px';
-      }, 300);
+        // success passe de display:none à display:grid ICI. Sans ce
+        // recalcul forcé, la classe .is-in posée juste après n'aurait
+        // aucun état de départ et le bloc apparaîtrait d'un coup.
+        void success.offsetHeight;
+        requestAnimationFrame(() => success.classList.add('is-in'));
+      }, T.swap);
 
       setTimeout(() => {
         card.style.height = '';
         card.style.overflow = '';
+        card.style.willChange = 'auto';
         card.classList.remove('is-closing');
         sending = false;
         if (window.__sky) window.__sky.remeasure();
-      }, 1250);
+      }, T.tail);
     });
   }
 
