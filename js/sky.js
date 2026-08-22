@@ -1,177 +1,256 @@
 /* ============================================================
-   Eya & Yosri — le ciel vivant (WebGL, OGL)
+   Eya & Yosri — LE FONDU DU JOUR
    ------------------------------------------------------------
-   Un seul shader plein écran peint la voûte du soir. Une uniforme
-   uProgress (0 = après-midi → 1 = nuit) est pilotée par le
-   défilement depuis main.js. Le shader dessine : le dégradé du
-   ciel (calé sur la palette du site pour garder le texte lisible),
-   un soleil qui se couche, la lueur de l'heure dorée à l'horizon,
-   une lune, et des étoiles qui ne s'allument que dans la nuit.
+   Remplace l'ancien shader WebGL plein écran. Le fond est
+   maintenant CINQ ciels dessinés à la main (css/styles.css,
+   section 3), empilés en position fixe : on croise leurs
+   opacités au défilement.
 
-   Contrat partagé (window.__sky) :
-     · active        — true si le WebGL tourne
-     · setProgress(p)— cible de progression [0..1], lissée dans le rendu
-   Si le WebGL échoue, window.__sky.active reste false et main.js
-   repeint #sky en couleur pleine (repli identique à l'ancien ciel).
+     16h porcelaine → heure dorée → crépuscule
+                    → heure bleue → la nuit
+
+   Pourquoi c'est mieux, et pas seulement moins cher :
+   · un ciel dessiné peut être BEAU ; une interpolation
+     paramétrique entre six teintes traversait le bilieux,
+   · plus aucun disque à bord dur en guise de soleil ou de lune :
+     uniquement des lueurs à retombée douce,
+   · plus de grille d'étoiles : un vrai champ, peint une fois.
+
+   COÛT
+   Cinq calques composités dont seule l'opacité change — le
+   compositeur s'en charge, sans repeindre. La boucle n'est
+   armée que par un événement (scroll, resize) et rend UNE image
+   avant de s'éteindre : zéro image calculée à l'arrêt, quelle
+   que soit la durée de la visite.
+
+   CONTRAT PARTAGÉ (window.__sky)
+     · setProgress(p) — force la progression [0..1]
+     · remeasure()    — re-mesure les bornes (appelé par main.js
+                        à chaque ScrollTrigger.refresh)
+     · progress()     — lecture
    ============================================================ */
 
-import { Renderer, Program, Mesh, Triangle, Vec2 }
-  from 'https://cdn.jsdelivr.net/npm/ogl@1.0.11/+esm';
+(() => {
+  const root = document.documentElement;
+  const sky = document.getElementById('sky');
+  if (!sky) return;
 
-const api = { active: false, setProgress() {} };
-window.__sky = api;
+  const LAYERS = 5;                    // --w0 .. --w4
+  const NIGHT_FROM = 0.74;             // les étoiles s'allument ici (nuit franche)
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const skyEl = document.getElementById('sky');
-const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  /* Chaque section reçoit la valeur du fondu qu'elle doit atteindre.
+     La transition se joue sur la fenêtre qui précède son entrée. */
+  const STOPS = [
+    ['#story', 0.10],
+    ['#gallery', 0.24],    // « L'heure dorée » tombe pile à l'heure dorée
+    ['#schedule', 0.36],
+    ['#venue', 0.58],
+    ['#rsvp', 0.82],
+    ['.footer', 1.00],
+  ];
 
-const vertex = /* glsl */`
-  attribute vec2 position;
-  void main() { gl_Position = vec4(position, 0.0, 1.0); }
-`;
+  let segments = [];
+  let current = -1;
 
-const fragment = /* glsl */`
-  precision highp float;
-  uniform float uTime;
-  uniform float uProgress;
-  uniform vec2  uResolution;
+  /* Le finale : bornes de la traversée RSVP → bas de page, sur
+     laquelle les lanternes s'élèvent. */
+  let riseFrom = 0;
+  let riseTo = 1;
 
-  // Palette du crépuscule (après-midi -> nuit)
-  const vec3 c0 = vec3(0.957, 0.937, 0.886); // ecru
-  const vec3 c1 = vec3(0.925, 0.886, 0.796); // linen
-  const vec3 c2 = vec3(0.902, 0.827, 0.663); // honey
-  const vec3 c3 = vec3(0.773, 0.784, 0.635); // sage clair
-  const vec3 c4 = vec3(0.663, 0.694, 0.537); // sage
-  const vec3 c5 = vec3(0.235, 0.267, 0.165); // twilight (assombri)
-  const vec3 c6 = vec3(0.055, 0.070, 0.038); // nuit
-
-  vec3 skyBase(float p) {
-    float t = clamp(p, 0.0, 1.0) * 6.0;
-    if (t < 1.0) return mix(c0, c1, t);
-    if (t < 2.0) return mix(c1, c2, t - 1.0);
-    if (t < 3.0) return mix(c2, c3, t - 2.0);
-    if (t < 4.0) return mix(c3, c4, t - 3.0);
-    if (t < 5.0) return mix(c4, c5, t - 4.0);
-    return mix(c5, c6, clamp(t - 5.0, 0.0, 1.0));
-  }
-
-  float hash(vec2 p) {
-    p = fract(p * vec2(123.34, 456.21));
-    p += dot(p, p + 45.32);
-    return fract(p.x * p.y);
-  }
-
-  void main() {
-    vec2 uv = gl_FragCoord.xy / uResolution.xy;  // origine en bas à gauche
-    float aspect = uResolution.x / uResolution.y;
-    float p = uProgress;
-
-    vec3 col = skyBase(p);
-
-    // Dégradé vertical : horizon plus lumineux, zénith plus profond
-    col *= mix(1.06, 0.90, uv.y);
-    // Chaleur basse qui s'estompe la nuit
-    col += vec3(0.05, 0.03, 0.0) * (1.0 - uv.y) * (1.0 - smoothstep(0.62, 1.0, p));
-
-    // ---- Soleil : descend et rougit ----
-    float sunY = mix(0.80, -0.10, smoothstep(0.0, 0.72, p));
-    vec2 d = uv - vec2(0.72, sunY);
-    d.x *= aspect;
-    float dist = length(d);
-    vec3 sunCol = mix(vec3(1.0, 0.96, 0.82), vec3(1.0, 0.52, 0.26), smoothstep(0.15, 0.7, p));
-    float setFade = 1.0 - smoothstep(0.66, 0.86, p);
-    col += sunCol * exp(-dist * 4.2) * 0.5 * setFade;
-    col = mix(col, sunCol, smoothstep(0.055, 0.042, dist) * setFade);
-
-    // ---- Lueur d'horizon, pic à l'heure dorée ----
-    float golden = clamp(1.0 - abs(p - 0.34) / 0.34, 0.0, 1.0);
-    col += vec3(0.92, 0.56, 0.26) * smoothstep(0.36, 0.0, uv.y) * golden * 0.32;
-    // Braise à l'horizon la nuit
-    col += vec3(0.55, 0.27, 0.10) * smoothstep(0.16, 0.0, uv.y) * smoothstep(0.72, 1.0, p) * 0.5;
-
-    // ---- Étoiles : points ronds et doux, seulement dans la nuit ----
-    float night = smoothstep(0.62, 1.0, p);
-    if (night > 0.001) {
-      vec2 gv = uv * vec2(aspect, 1.0) * 62.0;
-      vec2 id = floor(gv);
-      vec2 f = fract(gv) - 0.5;
-      float h = hash(id);
-      float present = step(0.90, h);                       // ~10 % des cellules
-      vec2 off = (vec2(hash(id + 1.7), hash(id + 4.2)) - 0.5) * 0.7;
-      float d = length(f - off);
-      float star = smoothstep(0.10, 0.0, d) * present;     // point rond
-      float tw = 0.45 + 0.55 * sin(uTime * 2.0 + h * 40.0);
-      col += vec3(1.0, 0.96, 0.86) * star * tw * night * smoothstep(0.10, 0.5, uv.y) * 0.85;
+  function measure() {
+    const vh = innerHeight;
+    let previous = 0;
+    segments = [];
+    for (const [selector, value] of STOPS) {
+      const el = document.querySelector(selector);
+      if (!el) continue;
+      const top = el.getBoundingClientRect().top + scrollY;
+      segments.push({
+        start: top - vh * 0.92,
+        end: top - vh * 0.34,
+        from: previous,
+        to: value,
+      });
+      previous = value;
     }
 
-    // ---- Lune, en fin de soirée ----
-    float moon = smoothstep(0.72, 1.0, p);
-    vec2 md = uv - vec2(0.26, 0.80);
-    md.x *= aspect;
-    float mdist = length(md);
-    col += vec3(0.92, 0.94, 0.82) * smoothstep(0.05, 0.036, mdist) * moon;
-    col += vec3(0.60, 0.66, 0.55) * exp(-mdist * 6.0) * moon * 0.4;
-
-    // Souffle atmosphérique très léger
-    col += (sin(uv.x * 3.0 + uTime * 0.05) * 0.5) * 0.008;
-
-    gl_FragColor = vec4(col, 1.0);
+    const rsvp = document.getElementById('rsvp');
+    const footer = document.querySelector('.footer');
+    if (rsvp && footer) {
+      riseFrom = rsvp.getBoundingClientRect().top + scrollY - vh;
+      riseTo = footer.getBoundingClientRect().bottom + scrollY - vh;
+      if (riseTo - riseFrom < 1) riseTo = riseFrom + 1;
+    }
   }
-`;
 
-try {
-  if (!skyEl) throw new Error('no #sky');
-
-  const renderer = new Renderer({
-    alpha: false,
-    antialias: false,
-    dpr: Math.min(window.devicePixelRatio || 1, 2),
-    powerPreference: 'high-performance',
-  });
-  const gl = renderer.gl;
-  gl.canvas.setAttribute('aria-hidden', 'true');
-  skyEl.appendChild(gl.canvas);
-
-  const program = new Program(gl, {
-    vertex,
-    fragment,
-    uniforms: {
-      uTime: { value: 0 },
-      uProgress: { value: window.__skyProgress || 0 },
-      uResolution: { value: new Vec2(1, 1) },
-    },
-  });
-  const mesh = new Mesh(gl, { geometry: new Triangle(gl), program });
-
-  function resize() {
-    renderer.setSize(skyEl.clientWidth || window.innerWidth, skyEl.clientHeight || window.innerHeight);
-    program.uniforms.uResolution.value.set(gl.canvas.width, gl.canvas.height);
+  function progressAt(y) {
+    let p = 0;
+    for (const s of segments) {
+      if (y <= s.start) break;
+      p = y >= s.end ? s.to : s.from + (s.to - s.from) * ((y - s.start) / (s.end - s.start));
+    }
+    return p;
   }
-  window.addEventListener('resize', resize);
-  resize();
 
-  let target = window.__skyProgress || 0;
-  let current = target;
-  api.active = true;
-  api.setProgress = (p) => { target = Math.max(0, Math.min(1, p)); };
+  /* Poids en « tente » : à p = i/4 le calque i est seul à 1, et
+     entre deux stops les deux voisins se croisent linéairement.
+     La somme vaut toujours 1, donc pas de trou ni de surcharge. */
+  function paint(p) {
+    if (Math.abs(p - current) < 0.0004) return;
+    current = p;
 
-  let last = performance.now();
-  function frame(now) {
-    const dt = Math.min((now - last) / 1000, 0.1);
-    last = now;
-    // Lissage supplémentaire de la progression : le ciel glisse
-    current += (target - current) * Math.min(dt * 6.0, 1);
-    program.uniforms.uProgress.value = current;
-    if (!reduced) program.uniforms.uTime.value = now / 1000;
-    renderer.render({ scene: mesh });
-    requestAnimationFrame(frame);
+    const t = p * (LAYERS - 1);
+    for (let i = 0; i < LAYERS; i++) {
+      const w = Math.max(0, 1 - Math.abs(t - i));
+      root.style.setProperty('--w' + i, w.toFixed(4));
+    }
+
+    const night = Math.max(0, (p - NIGHT_FROM) / (1 - NIGHT_FROM));
+    root.style.setProperty('--stars', night.toFixed(3));
+    root.classList.toggle('is-night', p > 0.6);
   }
-  requestAnimationFrame(frame);
 
-  // Rendu immédiat pour éviter tout flash avant le premier rAF
-  program.uniforms.uResolution.value.set(gl.canvas.width, gl.canvas.height);
-  renderer.render({ scene: mesh });
-} catch (err) {
-  api.active = false;
-  // main.js prendra le relais en repeignant #sky en couleur pleine
-  console.info('[sky] WebGL indisponible, repli couleur :', err && err.message);
-}
+  /* Les lanternes montent. Une SEULE écriture : --rise en vh, plus
+     l'opacité du plan. Chaque lanterne calcule sa position avec sa
+     profondeur, côté compositeur :
+        translate3d(0, calc(var(--y0) + var(--rise) * var(--sp)), 0)  */
+  let lastRise = -1;
+  function paintRise(y) {
+    const t = Math.max(0, Math.min(1, (y - riseFrom) / (riseTo - riseFrom)));
+    if (Math.abs(t - lastRise) < 0.0006) return;
+    lastRise = t;
+    // -150vh : de sous le bord bas jusqu'au-dessus du haut de l'écran
+    root.style.setProperty('--rise', (t * -150).toFixed(2) + 'vh');
+    // Le plan apparaît pendant la transition vers le finale
+    root.style.setProperty('--lanterns', Math.max(0, Math.min(1, (t - 0.06) / 0.28)).toFixed(3));
+  }
+
+  /* ---------- boucle armée par événement ----------
+     Aucun requestAnimationFrame permanent : on en demande un
+     seulement quand quelque chose a bougé, et il s'arrête. */
+  let queued = false;
+  function schedule() {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      const y = scrollY;
+      paint(progressAt(y));
+      paintRise(y);
+    });
+  }
+
+  /* ============================================================
+     LE CHAMP D'ÉTOILES
+     Trois toiles peintes UNE fois. Le placement est groupé (des
+     amas, pas une grille), et rayon comme opacité varient — c'est
+     exactement ce qui manquait à la version shader, où 10 % des
+     cellules d'une grille 62×62 donnaient de la poussière d'écran.
+     Le scintillement est une animation CSS d'opacité sur deux des
+     trois toiles : il vit sur le compositeur, sans réveiller JS.
+     ============================================================ */
+
+  const starsHost = sky.querySelector('.sky-stars');
+
+  function drawStars() {
+    if (!starsHost) return;
+    starsHost.textContent = '';
+
+    const w = innerWidth;
+    const h = innerHeight;
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    // moins d'étoiles sur petit écran : même densité perçue
+    const budget = w < 640 ? 130 : 260;
+    const shares = [0.62, 0.21, 0.17];   // fixe / scintillant lent / rapide
+
+    // Des amas, tirés une fois, partagés par les trois toiles
+    const clusters = [];
+    const clusterCount = 7;
+    for (let i = 0; i < clusterCount; i++) {
+      clusters.push({ x: Math.random() * w, y: Math.random() * h * 0.82, r: (0.16 + Math.random() * 0.26) * h });
+    }
+
+    for (const share of shares) {
+      const c = document.createElement('canvas');
+      c.width = Math.round(w * dpr);
+      c.height = Math.round(h * dpr);
+      const g = c.getContext('2d');
+      g.scale(dpr, dpr);
+
+      const n = Math.round(budget * share);
+      for (let i = 0; i < n; i++) {
+        let x, y;
+        if (Math.random() < 0.68) {
+          // dans un amas : tirage gaussien approché (somme de deux uniformes)
+          const cl = clusters[(Math.random() * clusters.length) | 0];
+          const a = Math.random() * Math.PI * 2;
+          const d = ((Math.random() + Math.random()) / 2) * cl.r;
+          x = cl.x + Math.cos(a) * d;
+          y = cl.y + Math.sin(a) * d;
+        } else {
+          x = Math.random() * w;
+          y = Math.random() * h;
+        }
+        if (x < 0 || x > w || y < 0 || y > h) continue;
+
+        // Le ciel bas est mangé par la braise de l'horizon :
+        // les étoiles s'y raréfient, comme dans une vraie photo.
+        const highness = 1 - y / h;
+        if (Math.random() > 0.18 + highness * 0.94) continue;
+
+        // Rayon et éclat corrélés, distribution en loi de puissance :
+        // beaucoup de faibles, quelques-unes qui portent.
+        const mag = Math.pow(Math.random(), 2.4);
+        const r = 0.35 + mag * 1.25;
+        const alpha = (0.22 + mag * 0.78) * (0.45 + highness * 0.55);
+
+        // Halo très léger sur les plus brillantes seulement
+        if (mag > 0.62) {
+          const grd = g.createRadialGradient(x, y, 0, x, y, r * 4.5);
+          grd.addColorStop(0, `rgba(255, 249, 236, ${(alpha * 0.5).toFixed(3)})`);
+          grd.addColorStop(1, 'rgba(255, 249, 236, 0)');
+          g.fillStyle = grd;
+          g.beginPath();
+          g.arc(x, y, r * 4.5, 0, Math.PI * 2);
+          g.fill();
+        }
+
+        g.fillStyle = `rgba(255, 250, 240, ${alpha.toFixed(3)})`;
+        g.beginPath();
+        g.arc(x, y, r, 0, Math.PI * 2);
+        g.fill();
+      }
+      starsHost.appendChild(c);
+    }
+  }
+
+  /* ---------- branchements ---------- */
+
+  let resizeTimer = null;
+  function onResize() {
+    measure();
+    lastRise = -1;
+    schedule();
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(drawStars, 220);
+  }
+
+  measure();
+  paint(progressAt(scrollY));
+  paintRise(scrollY);
+  drawStars();                        // le champ est statique : toujours peint
+
+  addEventListener('scroll', schedule, { passive: true });
+  addEventListener('resize', onResize, { passive: true });
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => { measure(); schedule(); });
+  }
+  addEventListener('load', () => { measure(); schedule(); });
+
+  window.__sky = {
+    setProgress: (p) => paint(Math.max(0, Math.min(1, p))),
+    remeasure: () => { measure(); lastRise = -1; current = -1; schedule(); },
+    progress: () => current,
+  };
+})();

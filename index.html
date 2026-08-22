@@ -6,128 +6,393 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Eya &amp; Yosri — 26.09.2026</title>
   <meta name="description"
-    content="Eya & Yosri se marient le 26 septembre 2026 à l'Espace Mimosa — une soirée méditerranéenne sous les oliviers et les lanternes.">
+    content="Eya & Yosri se marient le 26 septembre 2026 à l'Espace Mimosa, Sfax — une soirée à ciel ouvert, de l'heure dorée à la nuit des lanternes.">
   <meta property="og:title" content="Eya & Yosri — 26 septembre 2026">
-  <meta property="og:description" content="Une soirée méditerranéenne sous les oliviers et les lanternes. Vous êtes invités.">
-  <meta property="og:image" content="assets/photos/photo-3.jpg">
-  <meta name="theme-color" content="#161A0F">
+  <meta property="og:description" content="Une soirée à ciel ouvert, de l'heure dorée à la nuit des lanternes. Vous êtes invités.">
+  <meta property="og:image" content="assets/img/couple-embrace-800.jpg">
+  <meta name="theme-color" content="#FAF6F0">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,300..600,0..80;1,9..144,300..600,0..80&family=Marcellus&family=Mulish:wght@300;400;600;700&display=swap"
-    rel="stylesheet">
+  <link rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=DM+Mono&family=Instrument+Serif:ital@0;1&family=Karla:wght@350..650&display=swap">
 
-  <link rel="preload" as="image" href="assets/photos/photo-3.jpg">
-  <link rel="preload" as="image" href="assets/web/olive-wreath.png">
+  <!-- La photographie du hero, dans le format que le navigateur
+       choisira de toute façon — donc préchargée au bon poids. -->
+  <link rel="preload" as="image" type="image/avif"
+    imagesrcset="assets/img/couple-embrace-480.avif 480w, assets/img/couple-embrace-640.avif 640w, assets/img/couple-embrace-800.avif 800w"
+    imagesizes="(max-width: 54rem) 100vw, min(384px, 42vw)" fetchpriority="high">
+
   <link rel="stylesheet" href="css/styles.css">
 </head>
 
 <body class="locked">
 
   <!-- ============================================================
-       Le ciel vivant : un shader WebGL (js/sky.js) peint une vraie
-       voûte du soir — soleil qui se couche, lueur d'horizon, étoiles
-       qui s'allument — pilotée par le défilement. Le dégradé CSS ci-
-       dessous est l'état de repli (WebGL absent) et le premier rendu.
+       LE FONDU DU JOUR — cinq ciels dessinés à la main, empilés en
+       position fixe. js/sky.js croise leurs opacités au défilement
+       (--w0..--w4) : 16h porcelaine → heure dorée → crépuscule →
+       heure bleue → la nuit. Aucun disque à bord dur, aucune grille
+       d'étoiles : des lueurs douces seulement, et zéro image
+       calculée quand rien ne bouge.
        ============================================================ -->
-  <div id="sky" aria-hidden="true"></div>
-  <!-- Plan continu des lanternes : calque fixe derrière le contenu (au-dessus
-       du ciel), pour que les lanternes s'élèvent sans être coupées à la
-       frontière entre les deux dernières sections. Peuplé par js/main.js. -->
-  <div class="lantern-field" aria-hidden="true"></div>
-  <div id="grain" aria-hidden="true"></div>
-
-  <!-- Curseur sur-mesure (bureau, pointeur fin uniquement) -->
-  <div id="cursor" class="cursor" aria-hidden="true">
-    <span class="cursor-dot"></span>
-    <span class="cursor-ring"></span>
+  <div id="sky" aria-hidden="true">
+    <div class="sky-layer" data-t="0"></div>
+    <div class="sky-layer" data-t="1"></div>
+    <div class="sky-layer" data-t="2"></div>
+    <div class="sky-layer" data-t="3"></div>
+    <div class="sky-layer" data-t="4"></div>
+    <div class="sky-stars" aria-hidden="true"></div>
   </div>
+
+  <!-- Plan continu des lanternes : calque fixe derrière le contenu,
+       pour qu'elles s'élèvent sans être coupées à la frontière entre
+       les deux dernières sections. Peuplé par js/main.js. -->
+  <div class="lantern-field" aria-hidden="true"></div>
+
+  <!-- Le gabarit de lanterne, dessiné une fois puis réutilisé -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id="paper" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#B9601F" />
+        <stop offset="18%" stop-color="#EE9B45" />
+        <stop offset="44%" stop-color="#FFD79A" />
+        <stop offset="70%" stop-color="#F0A052" />
+        <stop offset="100%" stop-color="#B85C1D" />
+      </linearGradient>
+      <radialGradient id="glow" cx="50%" cy="58%" r="60%">
+        <stop offset="0%" stop-color="#FFF2D2" stop-opacity=".95" />
+        <stop offset="55%" stop-color="#FFC878" stop-opacity=".35" />
+        <stop offset="100%" stop-color="#F0A052" stop-opacity="0" />
+      </radialGradient>
+
+      <!-- Lanterne en papier : huit panneaux, coutures visibles,
+           cerceau haut, panier de fil, flamme. -->
+      <symbol id="lantern-body" viewBox="0 0 60 84">
+        <!-- dôme fermé, panse au tiers, embouchure ouverte en bas -->
+        <path d="M30 5 C35 5 39 7 40.5 10 L52 20 L56 33 L52 53 L46.5 64 L13.5 64 L8 53 L4 33 L8 20 L19.5 10 C21 7 25 5 30 5 Z" fill="url(#paper)" />
+        <path d="M30 5 C35 5 39 7 40.5 10 L52 20 L56 33 L52 53 L46.5 64 L13.5 64 L8 53 L4 33 L8 20 L19.5 10 C21 7 25 5 30 5 Z" fill="url(#glow)" />
+
+        <!-- huit panneaux : les coutures s'évasent du cerceau haut au bas -->
+        <g stroke="#8E4413" stroke-width=".7" opacity=".42" fill="none">
+          <path d="M30 6 L30 64" />
+          <path d="M25 6.6 L21.5 64" />
+          <path d="M35 6.6 L38.5 64" />
+          <path d="M20.5 9.4 L13.5 64" />
+          <path d="M39.5 9.4 L46.5 64" />
+          <path d="M8 20 L11 53" />
+          <path d="M52 20 L49 53" />
+        </g>
+
+        <!-- cerceaux -->
+        <path d="M19.5 10 C23 8 37 8 40.5 10" fill="none" stroke="#8E4413" stroke-width="1.3"
+          stroke-linecap="round" />
+        <path d="M13.5 64 L46.5 64" fill="none" stroke="#7C3B10" stroke-width="1.5" stroke-linecap="round" />
+        <!-- l'embouchure, vue de trois quarts -->
+        <ellipse cx="30" cy="64.5" rx="16.5" ry="3.4" fill="#5E2A0A" opacity=".42" />
+
+        <!-- panier de fil + bougie -->
+        <g stroke="#7C3B10" stroke-width=".85" fill="none" opacity=".85" stroke-linecap="round">
+          <path d="M15.5 65 L30 73.5 L44.5 65" />
+          <path d="M23 69 L37 69" />
+        </g>
+        <rect x="27.4" y="66.5" width="5.2" height="5" rx="1" fill="#E8D4B0" opacity=".9" />
+      </symbol>
+
+      <!-- ============================================================
+           Eya & Yosri en pixel art — dessinés à la main par Mohamed
+           pour une version antérieure du site. Leur palette est déjà
+           celle d'ici : robe #F8EFDE champagne, bouquet #D9822B souci.
+           Ils reviennent une seule fois, au finale : debout sur
+           l'horizon, à regarder monter leurs lanternes.
+           ============================================================ -->
+    <symbol id="mascot-a" viewBox="0 0 96 110" shape-rendering="crispEdges">
+    <g>
+
+    <!-- Jambes -->
+    <g>
+    <rect x="38" y="88" width="8" height="18" fill="#F2C79B" />
+    <rect x="34" y="100" width="12" height="6" fill="#C9A24B" />
+    </g>
+    <g>
+    <rect x="50" y="88" width="8" height="18" fill="#F2C79B" />
+    <rect x="50" y="100" width="12" height="6" fill="#C9A24B" />
+    </g>
+
+    <!-- Robe champagne satinée (col haut + large ceinture + jupe en escalier) -->
+    <g>
+    <rect x="36" y="44" width="24" height="18" fill="#F8EFDE" />
+    <rect x="32" y="60" width="32" height="10" fill="#F8EFDE" />
+    <rect x="28" y="68" width="40" height="12" fill="#F8EFDE" />
+    <rect x="24" y="78" width="48" height="14" fill="#F8EFDE" />
+    <rect x="24" y="88" width="48" height="4" fill="#E8D7B8" />
+    <rect x="36" y="54" width="24" height="8" fill="#E5D2AF" />
+    </g>
+
+    <!-- Bras : manches bouffantes ; bouquet dans la main gauche -->
+    <g>
+    <rect x="26" y="44" width="10" height="14" fill="#F8EFDE" />
+    <rect x="28" y="58" width="8" height="12" fill="#F2C79B" />
+    <g>
+    <rect x="29" y="52" width="4" height="12" fill="#7E9370" />
+    <rect x="21" y="44" width="8" height="8" fill="#D9822B" />
+    <rect x="23" y="46" width="4" height="4" fill="#B4611F" />
+    <rect x="29" y="42" width="8" height="8" fill="#FFFFFF" />
+    <rect x="31" y="44" width="4" height="4" fill="#E4A184" />
+    <rect x="17" y="52" width="4" height="4" fill="#FFFFFF" />
+    <rect x="25" y="38" width="4" height="4" fill="#FFFFFF" />
+    <rect x="17" y="46" width="4" height="4" fill="#9CAF88" />
+    <rect x="33" y="50" width="4" height="4" fill="#9CAF88" />
+    </g>
+    </g>
+    <g>
+    <rect x="60" y="44" width="10" height="14" fill="#F8EFDE" />
+    <rect x="60" y="58" width="8" height="12" fill="#F2C79B" />
+    </g>
+
+    <!-- Tête + hijab champagne avec chignon noué sur le côté -->
+    <g>
+    <rect x="28" y="8" width="40" height="36" fill="#F2C79B" />
+    <g>
+    <rect x="26" y="4" width="44" height="12" fill="#EFDDBE" />
+    <rect x="26" y="16" width="6" height="16" fill="#EFDDBE" />
+    <rect x="64" y="16" width="6" height="14" fill="#EFDDBE" />
+    <rect x="30" y="14" width="36" height="2" fill="#E2CBA4" />
+    <rect x="66" y="12" width="12" height="14" fill="#EFDDBE" />
+    <rect x="69" y="15" width="6" height="7" fill="#E2CBA4" />
+    <rect x="70" y="17" width="4" height="3" fill="#D4BE97" />
+    </g>
+    <g>
+    <rect x="36" y="26" width="4" height="5" fill="#FFFFFF" />
+    <rect x="40" y="26" width="4" height="5" fill="#3D2F26" />
+    <rect x="52" y="26" width="4" height="5" fill="#3D2F26" />
+    <rect x="56" y="26" width="4" height="5" fill="#FFFFFF" />
+    </g>
+    <rect x="32" y="32" width="5" height="4" fill="#E8A18B" opacity="0.8" />
+    <rect x="59" y="32" width="5" height="4" fill="#E8A18B" opacity="0.8" />
+    <g fill="#B4614C">
+    <rect x="42" y="34" width="3" height="3" />
+    <rect x="51" y="34" width="3" height="3" />
+    <rect x="45" y="36" width="6" height="3" />
+    </g>
+    <!-- Lunettes de soleil rouges relevées sur le hijab -->
+    <g>
+    <rect x="37" y="6" width="9" height="6" fill="#A93B2A" />
+    <rect x="50" y="6" width="9" height="6" fill="#A93B2A" />
+    <rect x="39" y="8" width="5" height="4" fill="#6E1F12" />
+    <rect x="52" y="8" width="5" height="4" fill="#6E1F12" />
+    <rect x="46" y="7" width="4" height="3" fill="#A93B2A" />
+    </g>
+    </g>
+
+    </g>
+    </symbol>
+
+    <symbol id="mascot-b" viewBox="0 0 96 104" shape-rendering="crispEdges">
+    <g>
+
+    <!-- Jambes : pantalon beige + baskets blanches -->
+    <g>
+    <rect x="38" y="80" width="8" height="14" fill="#C9B48E" />
+    <rect x="34" y="92" width="12" height="6" fill="#FFFFFF" />
+    <rect x="34" y="98" width="12" height="2" fill="#D8D3C8" />
+    </g>
+    <g>
+    <rect x="50" y="80" width="8" height="14" fill="#C9B48E" />
+    <rect x="50" y="92" width="12" height="6" fill="#FFFFFF" />
+    <rect x="50" y="98" width="12" height="2" fill="#D8D3C8" />
+    </g>
+
+    <!-- Costume lin beige, chemise blanche, boutonnière -->
+    <g>
+    <rect x="34" y="44" width="28" height="38" fill="#D3C0A2" />
+    <rect x="44" y="44" width="8" height="16" fill="#FFFFFF" />
+    <rect x="42" y="44" width="2" height="14" fill="#C2AE8C" />
+    <rect x="52" y="44" width="2" height="14" fill="#C2AE8C" />
+    <rect x="46" y="62" width="4" height="4" fill="#B9A67F" />
+    <rect x="36" y="47" width="4" height="4" fill="#C96F4A" />
+    <rect x="36" y="51" width="3" height="3" fill="#9CAF88" />
+    </g>
+
+    <!-- Bras -->
+    <g>
+    <rect x="26" y="44" width="8" height="16" fill="#D3C0A2" />
+    <rect x="26" y="60" width="8" height="10" fill="#EAB584" />
+    </g>
+    <g>
+    <rect x="62" y="44" width="8" height="16" fill="#D3C0A2" />
+    <rect x="62" y="60" width="8" height="10" fill="#EAB584" />
+    </g>
+
+    <!-- Tête : cheveux courts, barbe, sourire -->
+    <g>
+    <rect x="28" y="8" width="40" height="36" fill="#EAB584" />
+    <g fill="#2F2620">
+    <rect x="28" y="8" width="40" height="5" />
+    <rect x="28" y="13" width="4" height="8" />
+    <rect x="64" y="13" width="4" height="8" />
+    </g>
+    <g fill="#3A2E24">
+    <rect x="28" y="26" width="5" height="18" />
+    <rect x="63" y="26" width="5" height="18" />
+    <rect x="28" y="38" width="40" height="6" />
+    <rect x="40" y="32" width="16" height="4" />
+    </g>
+    <rect x="44" y="37" width="8" height="3" fill="#8A5B4C" />
+    <g fill="#2F2620">
+    <rect x="36" y="20" width="8" height="2" />
+    <rect x="52" y="20" width="8" height="2" />
+    </g>
+    <g>
+    <rect x="36" y="24" width="4" height="5" fill="#FFFFFF" />
+    <rect x="40" y="24" width="4" height="5" fill="#2F2620" />
+    <rect x="52" y="24" width="4" height="5" fill="#2F2620" />
+    <rect x="56" y="24" width="4" height="5" fill="#FFFFFF" />
+    </g>
+    <!-- Lunettes de soleil noires relevées dans les cheveux -->
+    <g>
+    <rect x="37" y="4" width="9" height="6" fill="#2A2A2A" />
+    <rect x="50" y="4" width="9" height="6" fill="#2A2A2A" />
+    <rect x="39" y="6" width="5" height="4" fill="#111111" />
+    <rect x="52" y="6" width="5" height="4" fill="#111111" />
+    <rect x="46" y="5" width="4" height="3" fill="#2A2A2A" />
+    </g>
+    </g>
+
+    </g>
+    </symbol>
+
+      <!-- L'ornement du site : un rameau d'olivier au trait. Dessiné,
+           pas importé — le seul ornement dont la page a besoin. -->
+      <symbol id="olive-sprig" viewBox="0 0 120 42">
+        <path id="olive-leaf" d="M0 0 C-3.4 -4.6 -3.8 -9.6 -.6 -13.4 C2.8 -9.2 3.2 -4.4 0 0 Z" />
+        <g fill="none" stroke="currentColor" stroke-width=".9" stroke-linecap="round">
+          <path d="M60 33 C45 32.4 27 27 8 12" />
+          <path d="M60 33 C75 32.4 93 27 112 12" />
+          <use href="#olive-leaf" transform="translate(49 31.4) rotate(-34)" />
+          <use href="#olive-leaf" transform="translate(38.5 28.8) rotate(-148)" />
+          <use href="#olive-leaf" transform="translate(27 24.6) rotate(-34)" />
+          <use href="#olive-leaf" transform="translate(16 17.6) rotate(-144)" />
+          <use href="#olive-leaf" transform="translate(71 31.4) rotate(34)" />
+          <use href="#olive-leaf" transform="translate(81.5 28.8) rotate(148)" />
+          <use href="#olive-leaf" transform="translate(93 24.6) rotate(34)" />
+          <use href="#olive-leaf" transform="translate(104 17.6) rotate(144)" />
+        </g>
+        <g fill="currentColor" opacity=".85">
+          <circle cx="56.4" cy="37" r="2.5" />
+          <circle cx="63.2" cy="38.2" r="2.1" />
+        </g>
+      </symbol>
+    </defs>
+  </svg>
 
   <!-- ============ Ouverture : le carton d'invitation (déclenche la musique) ============ -->
   <div id="overlay" class="overlay" role="button" tabindex="0" aria-label="Ouvrir l'invitation">
     <div class="overlay-inner">
-      <img class="overlay-wreath" src="assets/web/olive-wreath.png" alt="" aria-hidden="true">
+      <div class="card-crest" aria-hidden="true">
+        <svg viewBox="0 0 120 42"><use href="#olive-sprig" /></svg>
+      </div>
       <p class="overlay-kicker">Samedi 26 septembre 2026</p>
       <h2 class="overlay-names">Eya <span class="amp">&amp;</span> Yosri</h2>
+      <div class="overlay-rule" aria-hidden="true"></div>
       <p class="overlay-title">Vous êtes invités</p>
-      <p class="overlay-hint"><span>Toucher pour ouvrir l'invitation</span></p>
+      <p class="overlay-hint"><span>Toucher pour ouvrir</span></p>
     </div>
   </div>
 
-  <!-- ============ Musique de fond ============ -->
-  <audio id="bg-music" src="assets/music.mp3" loop preload="auto"></audio>
+  <!-- ============ Musique de fond ============
+       preload="none" : le fichier ne part qu'au geste du guest, qui
+       est de toute façon la seule chose qui autorise la lecture. -->
+  <audio id="bg-music" src="assets/music.mp3" loop preload="none"></audio>
   <button id="music-toggle" class="music-toggle" aria-label="Couper ou activer la musique" aria-pressed="false">
     <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>
   </button>
 
   <main>
 
-    <!-- ============ 1. Hero (photographique) ============ -->
+    <!-- ============ 1 · HERO ============
+         La source est un portrait 800×1200. On la garde à son échelle
+         native, en plaque verticale, et les noms s'imbriquent autour :
+         aucun agrandissement, aucun cadrage sacrifié. -->
     <section id="hero" class="hero">
-      <div class="hero-media" aria-hidden="true">
-        <img class="hero-photo" src="assets/photos/photo-3.jpg" alt="" decoding="async" fetchpriority="high">
-        <div class="hero-grade"></div>
-      </div>
+      <div class="hero-inner">
 
-      <div class="hero-content">
-        <p class="hero-kicker reveal-line">Nous nous marions</p>
-        <h1 class="hero-names" data-split>Eya <span class="amp">&amp;</span> Yosri</h1>
-        <div class="hero-rule reveal-fade" aria-hidden="true">
-          <span class="rule-line"></span>
-          <svg class="rule-leaf" viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg">
-            <path d="M7 13 C3 9 2 4 7 1 C12 4 11 9 7 13 Z" fill="none" stroke="currentColor" stroke-width="1" />
-          </svg>
-          <span class="rule-line"></span>
+        <h1 class="vh">Eya &amp; Yosri — 26 septembre 2026, Espace Mimosa</h1>
+
+        <div class="hero-stage">
+          <span class="hero-title" aria-hidden="true">
+            <span class="hero-name hero-name--l">Eya</span>
+            <span class="hero-amp">&amp;</span>
+            <span class="hero-name hero-name--r">Yosri</span>
+          </span>
+
+          <div class="hero-plate">
+            <picture>
+              <source type="image/avif"
+                srcset="assets/img/couple-embrace-480.avif 480w, assets/img/couple-embrace-640.avif 640w, assets/img/couple-embrace-800.avif 800w"
+                sizes="(max-width: 54rem) 100vw, min(384px, 42vw)">
+              <source type="image/webp"
+                srcset="assets/img/couple-embrace-480.webp 480w, assets/img/couple-embrace-640.webp 640w, assets/img/couple-embrace-800.webp 800w"
+                sizes="(max-width: 54rem) 100vw, min(384px, 42vw)">
+              <img src="assets/img/couple-embrace-800.jpg"
+                srcset="assets/img/couple-embrace-480.jpg 480w, assets/img/couple-embrace-640.jpg 640w, assets/img/couple-embrace-800.jpg 800w"
+                sizes="(max-width: 54rem) 100vw, min(384px, 42vw)" width="800" height="1200" fetchpriority="high"
+                decoding="async" alt="Eya et Yosri enlacés dans la lumière du soir, elle tenant son bouquet.">
+            </picture>
+          </div>
+
         </div>
-        <p class="hero-meta reveal-line">26 septembre 2026 · Espace Mimosa · 20h00</p>
 
-        <div id="hero-countdown" class="hero-countdown reveal-fade" role="timer"
-          aria-label="Compte à rebours jusqu'au grand jour">
-          <div class="cd-cell"><span class="cd-num" id="cd-days">–</span><span class="cd-unit">Jours</span></div>
-          <div class="cd-cell"><span class="cd-num" id="cd-hours">–</span><span class="cd-unit">Heures</span></div>
-          <div class="cd-cell"><span class="cd-num" id="cd-mins">–</span><span class="cd-unit">Minutes</span></div>
-          <div class="cd-cell"><span class="cd-num" id="cd-secs">–</span><span class="cd-unit">Secondes</span></div>
+        <div class="hero-meta">
+          <p class="hero-kicker reveal">Nous nous marions</p>
+          <p class="hero-when reveal"><span>26 septembre 2026</span><i aria-hidden="true">·</i><span>Espace
+              Mimosa · 20h00</span></p>
+
+          <div id="hero-countdown" class="hero-countdown reveal" role="timer"
+            aria-label="Compte à rebours jusqu'au grand jour">
+            <div class="cd-cell"><span class="cd-num" id="cd-days">–</span><span class="cd-unit">Jours</span></div>
+            <div class="cd-cell"><span class="cd-num" id="cd-hours">–</span><span class="cd-unit">Heures</span></div>
+            <div class="cd-cell"><span class="cd-num" id="cd-mins">–</span><span class="cd-unit">Minutes</span></div>
+            <div class="cd-cell"><span class="cd-num" id="cd-secs">–</span><span class="cd-unit">Secondes</span></div>
+          </div>
+
+          <div class="scroll-cue reveal" aria-hidden="true">
+            <span class="scroll-line"></span>
+            <span>La soirée commence</span>
+          </div>
         </div>
-      </div>
 
-      <div class="scroll-cue reveal-fade" aria-hidden="true">
-        <span class="scroll-line"></span>
-        <span>La soirée commence</span>
       </div>
     </section>
 
-    <!-- ============ 2. Notre histoire (chronologie éditoriale) ============ -->
+    <!-- ============ 2 · NOTRE HISTOIRE ============ -->
     <section id="story" class="section story">
       <div class="container">
-        <header class="section-head section-head--left">
-          <p class="eyebrow reveal-line">Notre histoire</p>
+        <header class="section-head">
+          <p class="label reveal">Notre histoire</p>
           <h2 class="section-title" data-split>Tout a commencé<br>par un regard</h2>
         </header>
 
         <ol class="timeline">
-          <li class="tl-item" data-side="left">
-            <span class="tl-year" aria-hidden="true">2018</span>
+          <li class="tl-item reveal">
+            <span class="tl-year">2018</span>
             <div class="tl-body">
-              <span class="tl-year-label">2018</span>
               <h3>Le premier regard</h3>
               <p>Un café, un fou rire, et cette impression étrange que le hasard avait bien fait les choses.
                 Il ne nous a plus quittés.</p>
             </div>
           </li>
-          <li class="tl-item" data-side="right">
-            <span class="tl-year" aria-hidden="true">2021</span>
+          <li class="tl-item reveal">
+            <span class="tl-year">2021</span>
             <div class="tl-body">
-              <span class="tl-year-label">2021</span>
               <h3>Le premier voyage</h3>
               <p>Deux billets, une valise oubliée et des routes qui ne menaient nulle part — c'est là que nous
                 avons su que nous irions loin, ensemble.</p>
             </div>
           </li>
-          <li class="tl-item" data-side="left">
-            <span class="tl-year" aria-hidden="true">2025</span>
+          <li class="tl-item reveal">
+            <span class="tl-year">2025</span>
             <div class="tl-body">
-              <span class="tl-year-label">2025</span>
               <h3>La demande</h3>
               <p>Quelque part sous les étoiles, une question murmurée et un oui qui n'a pas hésité.
                 Le reste s'écrit le 26 septembre 2026.</p>
@@ -135,164 +400,205 @@
           </li>
         </ol>
 
-        <span class="story-rail" aria-hidden="true"></span>
-        <img class="story-branch" src="assets/web/branch-full.png" alt="" aria-hidden="true" loading="lazy"
-          decoding="async">
+        <figure class="story-fig reveal">
+          <picture>
+            <source type="image/avif"
+              srcset="assets/img/couple-dusk-480.avif 480w, assets/img/couple-dusk-640.avif 640w, assets/img/couple-dusk-800.avif 800w"
+              sizes="(max-width: 54rem) 100vw, 320px">
+            <source type="image/webp"
+              srcset="assets/img/couple-dusk-480.webp 480w, assets/img/couple-dusk-640.webp 640w, assets/img/couple-dusk-800.webp 800w"
+              sizes="(max-width: 54rem) 100vw, 320px">
+            <img src="assets/img/couple-dusk-640.jpg"
+              srcset="assets/img/couple-dusk-480.jpg 480w, assets/img/couple-dusk-640.jpg 640w, assets/img/couple-dusk-800.jpg 800w"
+              sizes="(max-width: 54rem) 100vw, 320px" width="800" height="1200" loading="lazy" decoding="async"
+              alt="Eya et Yosri au crépuscule, main dans la main sur la route.">
+          </picture>
+          <figcaption>Le ciel de septembre, l'an dernier</figcaption>
+        </figure>
       </div>
     </section>
 
-    <!-- ============ 3. L'heure dorée (galerie) ============ -->
+    <!-- ============ 3 · L'HEURE DORÉE ============ -->
     <section id="gallery" class="section gallery">
       <div class="container">
         <header class="section-head section-head--right">
-          <p class="eyebrow reveal-line">Quelques instants</p>
+          <p class="label reveal">Quelques instants</p>
           <h2 class="section-title" data-split>L'heure dorée</h2>
         </header>
 
         <div class="gallery-grid">
-          <figure class="gallery-figure">
-            <div class="gallery-frame">
-              <div class="gallery-photo" data-file="photo-1.jpg">
-                <img src="assets/photos/photo-1.jpg" alt="Triptyque : la robe au vent, le bouquet, la boutonnière"
-                  loading="lazy" onerror="this.parentElement.classList.add('is-missing')">
-              </div>
-            </div>
-            <figcaption>Lin, fleurs &amp; lumière</figcaption>
-          </figure>
-          <figure class="gallery-figure">
-            <div class="gallery-frame">
-              <div class="gallery-photo" data-file="photo-2.jpg">
-                <img src="assets/photos/photo-2.jpg" alt="Yosri sur son téléphone, main dans la main avec Eya"
-                  loading="lazy" onerror="this.parentElement.classList.add('is-missing')">
-              </div>
-            </div>
-            <figcaption>Il confirmait le traiteur, promis.</figcaption>
-          </figure>
-          <figure class="gallery-figure">
-            <div class="gallery-frame">
-              <div class="gallery-photo" data-file="photo-3.jpg">
-                <img src="assets/photos/photo-3.jpg" alt="Eya et Yosri enlacés, tout sourire, dans la lumière du soir"
-                  loading="lazy" onerror="this.parentElement.classList.add('is-missing')">
-              </div>
-            </div>
-            <figcaption>L'heure dorée</figcaption>
-          </figure>
-          <figure class="gallery-figure">
-            <div class="gallery-frame">
-              <div class="gallery-photo" data-file="photo-4.jpg">
-                <img src="assets/photos/photo-4.jpg" alt="Eya et Yosri s'éloignent main dans la main sur la route"
-                  loading="lazy" onerror="this.parentElement.classList.add('is-missing')">
-              </div>
-            </div>
+
+          <figure class="shot shot--a reveal">
+            <picture>
+              <source type="image/avif"
+                srcset="assets/img/couple-walking-480.avif 480w, assets/img/couple-walking-640.avif 640w, assets/img/couple-walking-800.avif 800w"
+                sizes="(max-width: 54rem) 100vw, min(460px, 42vw)">
+              <source type="image/webp"
+                srcset="assets/img/couple-walking-480.webp 480w, assets/img/couple-walking-640.webp 640w, assets/img/couple-walking-800.webp 800w"
+                sizes="(max-width: 54rem) 100vw, min(460px, 42vw)">
+              <img src="assets/img/couple-walking-640.jpg"
+                srcset="assets/img/couple-walking-480.jpg 480w, assets/img/couple-walking-640.jpg 640w, assets/img/couple-walking-800.jpg 800w"
+                sizes="(max-width: 54rem) 100vw, min(460px, 42vw)" width="800" height="1200" loading="lazy"
+                decoding="async" alt="Eya et Yosri s'éloignent main dans la main sur la route, un troupeau au loin.">
+            </picture>
             <figcaption>Vers le grand jour</figcaption>
           </figure>
+
+          <figure class="shot shot--b reveal">
+            <picture>
+              <source type="image/avif"
+                srcset="assets/img/couple-embrace-480.avif 480w, assets/img/couple-embrace-640.avif 640w, assets/img/couple-embrace-800.avif 800w"
+                sizes="(max-width: 54rem) 100vw, min(460px, 42vw)">
+              <source type="image/webp"
+                srcset="assets/img/couple-embrace-480.webp 480w, assets/img/couple-embrace-640.webp 640w, assets/img/couple-embrace-800.webp 800w"
+                sizes="(max-width: 54rem) 100vw, min(460px, 42vw)">
+              <img src="assets/img/couple-embrace-640.jpg"
+                srcset="assets/img/couple-embrace-480.jpg 480w, assets/img/couple-embrace-640.jpg 640w, assets/img/couple-embrace-800.jpg 800w"
+                sizes="(max-width: 54rem) 100vw, min(460px, 42vw)" width="800" height="1200" loading="lazy"
+                decoding="async" alt="Eya et Yosri se regardent, le soleil derrière eux.">
+            </picture>
+            <figcaption>Le cadre entier, cette fois</figcaption>
+          </figure>
+
+          <!-- La rupture pleine largeur : trois détails, jointifs -->
+          <figure class="strip reveal">
+            <picture>
+              <source type="image/avif"
+                srcset="assets/img/detail-dress-480.avif 480w, assets/img/detail-dress-640.avif 640w, assets/img/detail-dress-960.avif 960w"
+                sizes="(max-width: 54rem) 100vw, 33vw">
+              <img src="assets/img/detail-dress-640.jpg"
+                srcset="assets/img/detail-dress-480.jpg 480w, assets/img/detail-dress-640.jpg 640w, assets/img/detail-dress-960.jpg 960w"
+                sizes="(max-width: 54rem) 100vw, 33vw" width="960" height="396" loading="lazy" decoding="async"
+                alt="La robe et le bouquet en mouvement sur la route.">
+            </picture>
+            <picture>
+              <source type="image/avif"
+                srcset="assets/img/detail-bouquet-480.avif 480w, assets/img/detail-bouquet-640.avif 640w, assets/img/detail-bouquet-960.avif 960w"
+                sizes="(max-width: 54rem) 100vw, 33vw">
+              <img src="assets/img/detail-bouquet-640.jpg"
+                srcset="assets/img/detail-bouquet-480.jpg 480w, assets/img/detail-bouquet-640.jpg 640w, assets/img/detail-bouquet-960.jpg 960w"
+                sizes="(max-width: 54rem) 100vw, 33vw" width="960" height="396" loading="lazy" decoding="async"
+                alt="Le bouquet : soucis orange, marguerites et fleurs séchées.">
+            </picture>
+            <picture>
+              <source type="image/avif"
+                srcset="assets/img/detail-lapel-480.avif 480w, assets/img/detail-lapel-640.avif 640w, assets/img/detail-lapel-960.avif 960w"
+                sizes="(max-width: 54rem) 100vw, 33vw">
+              <img src="assets/img/detail-lapel-640.jpg"
+                srcset="assets/img/detail-lapel-480.jpg 480w, assets/img/detail-lapel-640.jpg 640w, assets/img/detail-lapel-960.jpg 960w"
+                sizes="(max-width: 54rem) 100vw, 33vw" width="960" height="396" loading="lazy" decoding="async"
+                alt="La boutonnière de lin, soucis et gypsophile, tenue entre deux doigts.">
+            </picture>
+            <figcaption>Lin, fleurs &amp; lumière</figcaption>
+          </figure>
+
         </div>
       </div>
     </section>
 
-    <!-- ============ 4. La soirée (programme) ============ -->
+    <!-- ============ 4 · LA SOIRÉE ============ -->
     <section id="schedule" class="section schedule">
       <div class="container">
-        <header class="section-head section-head--left">
-          <p class="eyebrow reveal-line">La soirée</p>
+        <div class="schedule-panel reveal">
+        <header class="section-head">
+          <p class="label reveal">La soirée</p>
           <h2 class="section-title" data-split>Le programme<br>du 26 septembre</h2>
-          <p class="section-sub reveal-fade">Une soirée intime, au rythme des conversations, de la voix et du
-            violon.</p>
+          <p class="lede reveal">Une soirée intime, au rythme des conversations, de la voix et du violon.</p>
         </header>
 
         <div class="schedule-list">
-          <span class="schedule-rail" aria-hidden="true"></span>
-          <article class="moment">
-            <div class="moment-time">20h00</div>
+          <article class="moment reveal">
+            <p class="moment-time">20h00</p>
             <div class="moment-body">
               <h3>L'accueil</h3>
-              <p>On vous reçoit sous le ciel du soir, entre oliviers et bougies. La ponctualité est de mise.</p>
+              <p>On vous reçoit à ciel ouvert, entre les bougies. La ponctualité est de mise.</p>
             </div>
           </article>
-          <article class="moment">
-            <div class="moment-time">21h00</div>
+          <article class="moment reveal">
+            <p class="moment-time">21h00</p>
             <div class="moment-body">
               <h3>Le dîner</h3>
               <p>Amuse-bouche, entrée, plat, dessert — puis cocktails signature, sans alcool.</p>
             </div>
           </article>
-          <article class="moment">
-            <div class="moment-time">Au fil de la nuit</div>
+          <article class="moment reveal">
+            <p class="moment-time">Au fil<br>de la nuit</p>
             <div class="moment-body">
               <h3>La musique</h3>
               <p>Voix et violon, en douceur. Nous passerons de table en table, pour un moment avec chacun de vous.</p>
             </div>
           </article>
-          <article class="moment">
-            <div class="moment-time">Pour finir</div>
+          <article class="moment reveal">
+            <p class="moment-time">Pour finir</p>
             <div class="moment-body">
               <h3>Les lanternes</h3>
               <p>Des centaines de lanternes s'élèveront ensemble dans la nuit — la nôtre, et toutes les vôtres.</p>
             </div>
           </article>
         </div>
-        <img class="schedule-branch" src="assets/web/branch-corner-2.png" alt="" aria-hidden="true" loading="lazy"
-          decoding="async">
+        </div>
       </div>
     </section>
 
-    <!-- ============ 5. Le lieu ============ -->
+    <!-- ============ 5 · LE LIEU ============ -->
     <section id="venue" class="section venue">
       <div class="container">
-        <div class="venue-body">
-          <div class="venue-photo reveal-fade">
-            <img src="assets/mimosa/mimosa.jpg" alt="L'allée de cérémonie de l'Espace Mimosa, fleurie et à ciel ouvert"
-              loading="lazy">
+        <div class="venue-panel reveal">
+          <div class="venue-photo">
+            <picture>
+              <source type="image/avif"
+                srcset="assets/img/venue-640.avif 640w, assets/img/venue-960.avif 960w, assets/img/venue-1440.avif 1440w, assets/img/venue-1916.avif 1916w"
+                sizes="(max-width: 54rem) 100vw, min(600px, 55vw)">
+              <source type="image/webp"
+                srcset="assets/img/venue-640.webp 640w, assets/img/venue-960.webp 960w, assets/img/venue-1440.webp 1440w, assets/img/venue-1916.webp 1916w"
+                sizes="(max-width: 54rem) 100vw, min(600px, 55vw)">
+              <img src="assets/img/venue-960.jpg"
+                srcset="assets/img/venue-640.jpg 640w, assets/img/venue-960.jpg 960w, assets/img/venue-1440.jpg 1440w, assets/img/venue-1916.jpg 1916w"
+                sizes="(max-width: 54rem) 100vw, min(600px, 55vw)" width="1916" height="1368" loading="lazy"
+                decoding="async" alt="L'allée de cérémonie de l'Espace Mimosa, fleurie et à ciel ouvert.">
+            </picture>
           </div>
-          <div class="venue-text">
-            <p class="eyebrow reveal-line">Le lieu</p>
-            <h2 class="section-title section-title--left" data-split>Espace Mimosa</h2>
-            <p class="venue-note reveal-fade">Lin, céramique, branches d'olivier et mille bougies — une soirée
-              méditerranéenne à ciel ouvert.</p>
 
-            <!-- Plaque de lieu gravée : élégante et honnête, la vraie carte est à un clic -->
-            <div class="venue-plate reveal-fade">
-              <svg class="plate-compass" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                <circle cx="32" cy="32" r="29" fill="none" stroke="currentColor" stroke-width="1" opacity=".6" />
-                <circle cx="32" cy="32" r="23" fill="none" stroke="currentColor" stroke-width="1" opacity=".3" />
-                <path d="M32 8 L37 30 L32 56 L27 30 Z" fill="currentColor" opacity=".85" />
-                <path d="M8 32 L56 32 M32 8 L32 56" stroke="currentColor" stroke-width=".5" opacity=".35" />
-                <circle cx="32" cy="32" r="2.4" fill="currentColor" />
-              </svg>
-              <div class="plate-lines">
-                <p class="plate-address">Espace Mimosa · Route de l'aéroport, Sfax</p>
-                <p class="plate-coords">34°48'08"N&nbsp;&nbsp;10°40'17"E</p>
-              </div>
+          <div class="venue-text">
+            <p class="label">Le lieu</p>
+            <h2 class="section-title" data-split>Espace Mimosa</h2>
+            <p class="venue-note">Un jardin à ciel ouvert, une allée fleurie et mille bougies — la soirée
+              se tiendra dehors, du coucher du soleil jusqu'aux lanternes.</p>
+
+            <div class="venue-facts">
+              <div><span class="k">Adresse</span><span class="v">Route de l'aéroport, Sfax</span></div>
+              <div><span class="k">Coordonnées</span><span class="v">34°48'08"N&nbsp;&nbsp;10°40'17"E</span></div>
+              <div><span class="k">Accueil</span><span class="v">Samedi 26.09.2026 · 20h00</span></div>
             </div>
 
-            <p class="map-actions reveal-fade">
-              <a class="map-link magnetic" href="https://maps.app.goo.gl/BNDbM57GRoBZkH369" target="_blank"
-                rel="noopener">Ouvrir dans Google Maps</a>
-            </p>
+            <a class="btn" href="https://maps.app.goo.gl/BNDbM57GRoBZkH369" target="_blank" rel="noopener">Ouvrir dans
+              Google Maps</a>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ============ 6. RSVP ============ -->
+    <!-- ============ 6 · RSVP ============ -->
     <section id="rsvp" class="section rsvp">
       <div class="container">
-        <div id="rsvp-card" class="rsvp-panel reveal-fade">
-          <img class="rsvp-wreath" src="assets/web/olive-wreath.png" alt="" aria-hidden="true" loading="lazy"
-            decoding="async">
-          <p class="eyebrow">RSVP</p>
-          <h2 class="section-title">Serez-vous des nôtres ?</h2>
-          <p class="rsvp-text">Une soirée intime, entre famille proche et amis chers. Faites-nous le plaisir de
-            répondre avant le 1<sup>er</sup> août 2026.</p>
+        <div id="rsvp-card" class="rsvp-panel reveal">
+
+          <header class="rsvp-head">
+            <p class="label">RSVP</p>
+            <h2 class="section-title">Serez-vous des nôtres&nbsp;?</h2>
+            <p class="rsvp-text">Une soirée intime, entre famille proche et amis chers. Faites-nous le plaisir de
+              répondre avant le 1<sup>er</sup> août 2026.</p>
+          </header>
 
           <form id="rsvp-form" class="rsvp-form" novalidate>
             <div class="form-grid">
-              <label class="form-field form-field-full">
-                <input type="text" name="name" required autocomplete="name" placeholder=" ">
-                <span class="field-label">Nom &amp; prénom *</span>
+              <label class="form-field">
+                <span>Nom &amp; prénom *</span>
+                <input type="text" name="name" required autocomplete="name">
               </label>
-              <fieldset class="form-field form-field-full form-radios">
-                <legend>Serez-vous des nôtres ? *</legend>
+
+              <fieldset class="form-field form-radios">
+                <legend>Votre réponse *</legend>
                 <div class="radio-row">
                   <label class="pill"><input type="radio" name="attendance" value="Avec joie !" required>
                     <span>Avec joie !</span></label>
@@ -300,6 +606,7 @@
                     <span>Avec regret, non</span></label>
                 </div>
               </fieldset>
+
               <fieldset class="form-field form-radios">
                 <legend>Un +1 ?</legend>
                 <div class="radio-row">
@@ -307,23 +614,24 @@
                     <span>Je viens accompagné·e</span></label>
                 </div>
               </fieldset>
+
               <label class="form-field">
-                <input type="text" name="diet" placeholder=" ">
-                <span class="field-label">Allergies</span>
-              </label>
-              <label class="form-field form-field-full">
-                <textarea name="message" rows="3" placeholder=" "></textarea>
-                <span class="field-label">Un petit mot pour nous ?</span>
+                <span>Un petit mot pour nous ?</span>
+                <textarea name="message" rows="3"></textarea>
               </label>
             </div>
+
             <input type="text" name="_gotcha" class="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
-            <button id="rsvp-button" class="rsvp-button magnetic" type="submit">Envoyer ma réponse</button>
+            <button id="rsvp-button" class="rsvp-button" type="submit">Envoyer ma réponse</button>
             <p class="rsvp-hint">Un souci avec le formulaire ? Écrivez-nous :
-              <a href="mailto:mouhasahss@gmail.com">mouhasahss@gmail.com</a></p>
+              <a href="mailto:mouhasahss@gmail.com">mouhasahss@gmail.com</a>
+            </p>
           </form>
 
           <div id="rsvp-success" class="rsvp-success" hidden>
-            <div class="branch-divider" aria-hidden="true"></div>
+            <div class="crest" aria-hidden="true">
+              <svg viewBox="0 0 120 42"><use href="#olive-sprig" /></svg>
+            </div>
             <p class="rsvp-success-title">Merci</p>
             <p class="rsvp-success-text">Votre réponse est bien partie — nous avons déjà hâte de vous voir sous
               les lanternes.</p>
@@ -333,32 +641,34 @@
       </div>
     </section>
 
-    <!-- ============ 7. Finale : la nuit des lanternes ============ -->
+    <!-- ============ 7 · LA NUIT DES LANTERNES ============ -->
     <footer class="footer">
-      <div class="footer-content">
-        <p class="footer-line" data-split>Quand la dernière lanterne rejoindra le ciel de Mimosa, notre histoire
-          commencera son plus beau chapitre. Venez l'écrire avec nous.</p>
-        <p class="footer-names">Eya &amp; Yosri · 26 septembre 2026 · Espace Mimosa</p>
+      <p class="footer-line reveal" data-split>Quand la dernière lanterne rejoindra le ciel de Mimosa, notre histoire
+        commencera son plus beau chapitre. Venez l'écrire avec nous.</p>
+      <p class="footer-names reveal">Eya &amp; Yosri <span class="sep" aria-hidden="true">·</span> 26.09.2026 <span
+          class="sep" aria-hidden="true">·</span> Espace Mimosa</p>
+
+      <!-- Debout sur l'horizon, main dans la main, à regarder monter
+           les lanternes. C'est la dernière image de l'histoire. -->
+      <div class="finale-pair" aria-hidden="true">
+        <svg class="pixel-pair" viewBox="0 0 146 112" shape-rendering="crispEdges">
+          <use href="#mascot-a" x="0" y="2" width="96" height="110" />
+          <use href="#mascot-b" x="50" y="8" width="96" height="104" />
+        </svg>
       </div>
 
       <p class="footer-credit">
-        Fait avec soin par Mohamed Sahnoun
-        <span class="credit-sep" aria-hidden="true">·</span>
-        <a class="magnetic" href="https://www.instagram.com/sahnou_med/" target="_blank" rel="noopener">Instagram</a>
-        <span class="credit-sep" aria-hidden="true">·</span>
-        <a class="magnetic" href="https://www.linkedin.com/in/mohamed-sahnoun-1a33b71a0/" target="_blank"
-          rel="noopener">LinkedIn</a>
+        Fait avec soin par Mohamed Sahnoun<br>
+        <a href="https://www.instagram.com/sahnou_med/" target="_blank" rel="noopener">Instagram</a>
+        <span class="sep" aria-hidden="true">·</span>
+        <a href="https://www.linkedin.com/in/mohamed-sahnoun-1a33b71a0/" target="_blank" rel="noopener">LinkedIn</a>
       </p>
     </footer>
 
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/SplitText.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.20/dist/lenis.min.js"></script>
-  <script type="module" src="js/sky.js"></script>
-  <script src="js/main.js"></script>
+  <script defer src="js/sky.js"></script>
+  <script defer src="js/main.js"></script>
 
   <!-- Vercel Web Analytics — ne se charge qu'une fois le site déployé -->
   <script>
