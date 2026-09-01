@@ -10,7 +10,20 @@
   <meta property="og:title" content="Eya & Yosri — 26 septembre 2026">
   <meta property="og:description" content="Une soirée à ciel ouvert, de l'heure dorée à la nuit des lanternes. Vous êtes invités.">
   <meta property="og:image" content="assets/img/couple-embrace-800.jpg">
-  <meta name="theme-color" content="#FAF6F0">
+
+  <!-- La marque : une lanterne allumée dans la nuit, dessinée à partir
+       du même gabarit que celles du ciel (assets/web/favicon.svg).
+       Le .ico ne sert qu'aux vieux navigateurs et aux robots qui vont
+       chercher /favicon.ico sans lire le <head>. -->
+  <link rel="icon" href="assets/web/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
+  <link rel="apple-touch-icon" href="assets/web/apple-touch-icon.png">
+  <link rel="manifest" href="site.webmanifest">
+
+  <!-- La page part de la porcelaine de 16 h et finit dans la nuit :
+       la barre du navigateur suit le thème du système. -->
+  <meta name="theme-color" content="#FAF6F0" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#2E231D" media="(prefers-color-scheme: dark)">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

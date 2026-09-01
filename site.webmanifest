@@ -1,0 +1,15 @@
+{
+  "name": "Eya & Yosri — 26 septembre 2026",
+  "short_name": "Eya & Yosri",
+  "description": "Une soirée à ciel ouvert, de l'heure dorée à la nuit des lanternes.",
+  "lang": "fr",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#2E231D",
+  "theme_color": "#2E231D",
+  "icons": [
+    { "src": "assets/web/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/web/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/web/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
