@@ -12,9 +12,9 @@
    · révélations      → IntersectionObserver + transition CSS
    · titres           → balayage par masque CSS (@property)
    · entrée du hero   → transitions CSS échelonnées (html.is-open)
-   · lanternes        → UNE variable CSS (--rise), écrite par la
-                        boucle du ciel ; chaque lanterne en déduit sa
-                        position, côté compositeur, pas côté JS
+   · lanternes        → une animation CSS sans fin par lanterne,
+                        posée une fois ; elles s'élèvent en boucle,
+                        côté compositeur, pas côté JS
    · repli RSVP       → transition CSS sur la hauteur mesurée
    · défilement       → natif. Sur iOS il est plus fluide que tout
                         ce que JS peut lui superposer, et c'était la
@@ -212,11 +212,11 @@
      peint UNE fois derrière elle — pas un `filter` animé, qui
      repeindrait à chaque image.
 
-     La montée ne coûte AUCUN travail JS par lanterne. La boucle du
-     ciel écrit une seule variable, --rise, et chaque lanterne en
-     déduit sa position selon sa profondeur :
-
-         translate3d(0, calc(var(--y0) + var(--rise) * var(--sp)), 0)
+     La montée ne coûte AUCUN travail JS : c'est une animation CSS sans
+     fin (@keyframes rise), posée une fois à la construction. Chaque
+     lanterne reçoit sa durée de traversée et un délai NÉGATIF qui la
+     démarre à un point quelconque du cycle — le ciel est donc déjà
+     peuplé, à des hauteurs mêlées, dès la première image.
 
      Placement par rejet : distance minimale entre voisines, et la
      zone de la lune reste libre pour celles qui montent haut — sinon
@@ -224,6 +224,7 @@
      ============================================================ */
 
   const MOON = { x: 21, pad: 15 };   // en % de largeur, cf. .sky-layer[data-t="4"]
+  const RISE_BASE = 45;              // secondes pour une traversée à vitesse 1
 
   function svgEl(tag, attrs) {
     const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
@@ -237,16 +238,18 @@
     while (out.length < n && guard++ < 900) {
       const depth = Math.random();                 // 0 = loin, 1 = proche
       const w = 26 + depth * 74;                   // 26–100 px
-      const speed = 0.55 + depth * 1.05;           // les proches montent plus haut
-      const lift = Math.random() * 0.5;            // départ échelonné
+      const speed = 0.55 + depth * 1.05;           // les proches montent plus vite
+      const phase = Math.random();                 // où elle en est de son cycle
       const x = 2 + Math.random() * 94;
 
       if (speed > 0.95 && Math.abs(x - MOON.x) < MOON.pad) continue;
 
+      // Deux voisines ne gênent que si elles sont AUSSI au même point
+      // du cycle : sinon l'une est haute quand l'autre est basse.
       const minGap = 5 + (w / innerWidth) * 90;
-      if (out.some((o) => Math.abs(o.x - x) < minGap && Math.abs(o.speed - speed) < 0.45)) continue;
+      if (out.some((o) => Math.abs(o.x - x) < minGap && Math.abs(o.phase - phase) < 0.2)) continue;
 
-      out.push({ x, w, speed, depth, lift });
+      out.push({ x, w, speed, depth, phase });
     }
     return out;
   }
@@ -263,8 +266,12 @@
       el.className = 'lantern';
       el.style.setProperty('--x', l.x + '%');
       el.style.setProperty('--w', l.w + 'px');
-      el.style.setProperty('--sp', (l.speed + l.lift).toFixed(3));
-      el.style.setProperty('--y0', (-l.lift * 55).toFixed(1) + 'vh');
+      // Une traversée complète, en boucle. Les lointaines dérivent
+      // lentement (~82 s), les proches filent (~28 s).
+      const dur = RISE_BASE / l.speed;
+      el.style.setProperty('--dur', dur.toFixed(1) + 's');
+      // Délai négatif : elle entre en scène déjà en vol.
+      el.style.setProperty('--rd', (-l.phase * dur).toFixed(1) + 's');
       el.style.setProperty('--o', (0.42 + l.depth * 0.58).toFixed(2));
       // Les lointaines vacillent et se balancent plus lentement.
       el.style.setProperty('--fl', (3.4 - l.depth * 1.2).toFixed(2) + 's');

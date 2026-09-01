@@ -1091,18 +1091,40 @@ main { position: relative; }
   opacity: var(--lanterns, 0);
 }
 
-/* La montée : une seule variable écrite par js/sky.js (--rise, en vh),
-   chaque lanterne en déduit sa position avec sa profondeur (--sp) et
-   son décalage de départ (--y0). Le calcul est fait par le
-   compositeur, pas par JS — aucune boucle, aucun style écrit par
-   lanterne pendant le défilement. */
+/* La montée : une animation CSS sans fin, propre à chaque lanterne.
+   Le défilement n'y touche plus — elles s'élèvent à leur rythme, en
+   boucle, du bas de l'écran jusqu'au-delà du haut. Deux variables
+   suffisent : --dur (la durée d'une traversée, dérivée de la
+   profondeur) et --rd (un délai NÉGATIF, qui démarre chacune à un
+   point différent du cycle — sinon le ciel se remplit d'un coup).
+
+   L'enveloppe d'opacité est dans les keyframes : la lanterne naît et
+   meurt invisible, donc rien ne clignote au raccord de la boucle —
+   son halo fait 340 % de sa largeur et dépasserait du bord bas.
+
+   Tout vit sur le compositeur : aucun style écrit par JS après la
+   construction. */
 .lantern {
   position: absolute;
   left: var(--x);
   bottom: -13rem;
   width: var(--w);
   opacity: var(--o, 1);
-  transform: translate3d(0, calc(var(--y0, 0vh) + var(--rise, 0vh) * var(--sp, 1)), 0);
+  animation: rise var(--dur, 45s) linear var(--rd, 0s) infinite;
+}
+
+/* Rien ne monte tant que le ciel n'est pas tombé : avant la nuit, le
+   plan est figé (et invisible), donc zéro image composée. Grâce aux
+   délais négatifs, « figé » ne veut pas dire « empilées en bas » —
+   chacune attend à son propre point du cycle. */
+.lantern { animation-play-state: paused; }
+html.is-night .lantern { animation-play-state: running; }
+
+@keyframes rise {
+  0%   { transform: translate3d(0, 0, 0);      opacity: 0; }
+  8%   { opacity: var(--o, 1); }
+  86%  { opacity: var(--o, 1); }
+  100% { transform: translate3d(0, -150vh, 0); opacity: 0; }
 }
 
 /* Le balancement vit sur un enfant : il ne peut donc pas écraser la
@@ -1399,6 +1421,9 @@ html.js-anim .scroll-cue   { --d: 1.15s; }
   .lantern .flame,
   .lantern > svg,
     .cd-num.is-tick { animation: none; }
+  /* La montée reste figée : chaque lanterne garde son délai négatif,
+     donc le champ reste étalé dans le ciel au lieu de s'empiler. */
+  html.is-night .lantern { animation-play-state: paused; }
   .rsvp-success,
   .rsvp-success .crest,
   .rsvp-success-title,

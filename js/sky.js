@@ -23,6 +23,11 @@
    avant de s'éteindre : zéro image calculée à l'arrêt, quelle
    que soit la durée de la visite.
 
+   Le défilement ne pilote plus la montée des lanternes : elles
+   ont leur propre horloge (une animation CSS sans fin, cf.
+   css/styles.css §13). Il ne reste ici que --lanterns, l'opacité
+   du plan, qui suit la tombée de la nuit comme --stars.
+
    CONTRAT PARTAGÉ (window.__sky)
      · setProgress(p) — force la progression [0..1]
      · remeasure()    — re-mesure les bornes (appelé par main.js
@@ -53,10 +58,9 @@
   let segments = [];
   let current = -1;
 
-  /* Le finale : bornes de la traversée RSVP → bas de page, sur
-     laquelle les lanternes s'élèvent. */
-  let riseFrom = 0;
-  let riseTo = 1;
+  /* Le plan des lanternes s'allume avec la nuit, comme les étoiles. */
+  const LANTERNS_FROM = 0.60;
+  const LANTERNS_TO = 0.82;
 
   function measure() {
     const vh = innerHeight;
@@ -73,14 +77,6 @@
         to: value,
       });
       previous = value;
-    }
-
-    const rsvp = document.getElementById('rsvp');
-    const footer = document.querySelector('.footer');
-    if (rsvp && footer) {
-      riseFrom = rsvp.getBoundingClientRect().top + scrollY - vh;
-      riseTo = footer.getBoundingClientRect().bottom + scrollY - vh;
-      if (riseTo - riseFrom < 1) riseTo = riseFrom + 1;
     }
   }
 
@@ -108,22 +104,11 @@
 
     const night = Math.max(0, (p - NIGHT_FROM) / (1 - NIGHT_FROM));
     root.style.setProperty('--stars', night.toFixed(3));
-    root.classList.toggle('is-night', p > 0.6);
-  }
 
-  /* Les lanternes montent. Une SEULE écriture : --rise en vh, plus
-     l'opacité du plan. Chaque lanterne calcule sa position avec sa
-     profondeur, côté compositeur :
-        translate3d(0, calc(var(--y0) + var(--rise) * var(--sp)), 0)  */
-  let lastRise = -1;
-  function paintRise(y) {
-    const t = Math.max(0, Math.min(1, (y - riseFrom) / (riseTo - riseFrom)));
-    if (Math.abs(t - lastRise) < 0.0006) return;
-    lastRise = t;
-    // -150vh : de sous le bord bas jusqu'au-dessus du haut de l'écran
-    root.style.setProperty('--rise', (t * -150).toFixed(2) + 'vh');
-    // Le plan apparaît pendant la transition vers le finale
-    root.style.setProperty('--lanterns', Math.max(0, Math.min(1, (t - 0.06) / 0.28)).toFixed(3));
+    const lanterns = (p - LANTERNS_FROM) / (LANTERNS_TO - LANTERNS_FROM);
+    root.style.setProperty('--lanterns', Math.max(0, Math.min(1, lanterns)).toFixed(3));
+
+    root.classList.toggle('is-night', p > 0.6);
   }
 
   /* ---------- boucle armée par événement ----------
@@ -135,9 +120,7 @@
     queued = true;
     requestAnimationFrame(() => {
       queued = false;
-      const y = scrollY;
-      paint(progressAt(y));
-      paintRise(y);
+      paint(progressAt(scrollY));
     });
   }
 
@@ -230,7 +213,6 @@
   let resizeTimer = null;
   function onResize() {
     measure();
-    lastRise = -1;
     schedule();
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(drawStars, 220);
@@ -238,7 +220,6 @@
 
   measure();
   paint(progressAt(scrollY));
-  paintRise(scrollY);
   drawStars();                        // le champ est statique : toujours peint
 
   addEventListener('scroll', schedule, { passive: true });
@@ -250,7 +231,7 @@
 
   window.__sky = {
     setProgress: (p) => paint(Math.max(0, Math.min(1, p))),
-    remeasure: () => { measure(); lastRise = -1; current = -1; schedule(); },
+    remeasure: () => { measure(); current = -1; schedule(); },
     progress: () => current,
   };
 })();
