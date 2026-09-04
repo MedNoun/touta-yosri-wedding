@@ -121,7 +121,7 @@ Answers are POSTed to a Google Form on submit, so they land in your Sheet. **Alr
 
 To rewire it to a new form: create a Form with these questions, in this order — *Nom & prénom* (short) · *Serez-vous des nôtres ?* (`Avec joie !` / `Avec regret, non`) · *Un +1 ?* (`Oui, +1` / `Non`) · *Allergies ou régime* (short) · *Un petit mot pour nous ?* (paragraph) — link a Sheet, then ⋮ → **Get pre-filled link** and read the `entry.XXXXXXXXX` ids out of the URL. Update `action` (swap `/viewform` for `/formResponse`) and each id.
 
-Notes: radio values in `index.html` must match the Form options character-for-character. The allergies field was removed from the UI; its entry is still sent empty so the Form doesn't reject the post. The POST uses `mode: no-cors`, so the browser can't read Google's reply — the site optimistically shows the thank-you, which is standard. A honeypot filters basic bots and a mailto fallback sits under the button. **When testing submits locally, stub `window.fetch` first** so you don't pollute the live Sheet.
+Notes: radio values in `index.html` must match the Form options character-for-character. The *+1* and allergies fields were removed from the UI; their entries are still sent empty so the Form doesn't reject the post. The POST uses `mode: no-cors`, so the browser can't read Google's reply — the site optimistically shows the thank-you, which is standard. A honeypot filters basic bots and a mailto fallback sits under the button. **When testing submits locally, stub `window.fetch` first** so you don't pollute the live Sheet.
 
 ## Deploy on Vercel
 

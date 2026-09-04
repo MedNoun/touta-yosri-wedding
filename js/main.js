@@ -334,9 +334,10 @@
       const values = {
         name: data.get('name') || '',
         attendance: data.get('attendance') || '',
-        plusone: data.get('plusone') ? 'Oui, +1' : 'Non',
-        // Le champ « allergies » a été retiré du formulaire ; l'entrée
-        // part vide pour ne rien casser côté Google Form.
+        // Les champs « +1 » et « allergies » ont été retirés du
+        // formulaire ; les entrées partent vides pour ne rien casser
+        // côté Google Form.
+        plusone: '',
         diet: '',
         message: data.get('message') || '',
       };
