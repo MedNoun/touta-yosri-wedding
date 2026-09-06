@@ -48,9 +48,119 @@ transform: translate3d(0, calc(var(--y0) + var(--rise) * var(--sp)), 0);
 
 Placement is rejection-sampled with a minimum gap, and the moon's zone is kept clear of anything that rises high — otherwise they end up stuck to it.
 
+### The front door
+
+Every visit opens on a sealed envelope. Tap it: the wax cracks in two, the flap falls
+open, and **the couple's photograph rises out of the pocket, crosses the screen, and
+settles into its place in the hero — and only then do the names close in around it.**
+2.9 seconds to the landing, no video file, no library.
+
+The photograph is the point. It is the *same file* on both sides of the transition —
+same `srcset`, same `sizes`, so the browser picks one candidate and downloads it once.
+Nothing is swapped and nothing is cross-faded: one object survives from the envelope
+to the page, so **there is no cut to hide.** The porcelain veil that used to mask the
+changeover is now just the ground turning from brown to daylight *behind* an object
+you are watching the whole time.
+
+The envelope itself is one photograph cut into three layers by
+`tools/build-envelope.mjs` — body, flap, wax. Stacked back together they reproduce the
+source pixel for pixel, so *at rest the gate simply is the picture*; only when it moves
+does the seam exist. The lining, the back of the flap and the wax's scar are gradients,
+because the camera never saw them.
+
+The cut is not a hand-drawn polygon. The paper is deckled, so the silhouette is
+segmented from the image: **saturation, not luminance.** Paper is neutral at every
+light level (S 0.09–0.16) while linen is warm (S 0.23–0.41) — and sunlit linen is
+*brighter* than the envelope's shadowed corners, so a luminance threshold sheared the
+corners off and ate the "26.09" from the date. Largest connected component, morphological
+close, hole fill, convex hull. The torn edge survives.
+
+**Nothing under the wax was ever photographed**, so it is reconstructed rather than
+covered. `inpaintDisc` samples the ring of paper just outside the seal, angle by angle,
+and stretches it inward. That matters because the light rakes across the seal — the paper
+reads `#F3DBC5` on the lit left and `#CFC0B2` where the wax casts its shadow to the right
+— so a single-colour CSS disc could match neither, and it showed as a grey pastille the
+moment the two halves flew off. The interior surfaces are sampled from the same
+photograph (`#F6E2CE` lit, `#EDD8C4` mid, `#C5B9AF` in shadow); they used to borrow the
+site's `--champagne` and `--sand`, which are cooler and pinker than this paper, and that
+is what made the open envelope look like cut card rather than the same sheet.
+
+**Cut pieces must overlap, never abut, and never be inset.** Two complementary cuts
+sharing an edge each render it near 50% alpha, and 50% over 50% is not opaque — a grey
+thread of background shows through. Worse, the lining was clipped *inside* the body's
+punched triangle, leaving a wedge that neither painted: two dark lines down the folds
+that changed thickness along their length, because the inset was constant in percent
+while the triangle's edges converge. Every piece now laps over its neighbour.
+
+**The physical lie.** A 2:3 portrait print cannot fit in a landscape envelope, and more
+of it comes out than could have been inside. That is deliberate: it keeps the print in
+the hero's own aspect from the first frame, so the flight never has to reshape the
+photograph. Nobody reads geometry during a title sequence.
+
+**Four traps, in the order they bite:**
+
+1. **Safari flattens `preserve-3d`** the moment an *ancestor* carries `opacity < 1`,
+   `clip-path`, `filter` or `overflow: hidden`. So `overflow` lives on `.overlay`,
+   `perspective` on `.env-cam`, and the gate never fades itself out.
+2. **`transform` is one property.** Two animations on it and one silently wins. One
+   channel per element, and every static `translateZ` is rewritten into *each* keyframe.
+   The print gets three separate channels — `transform` for depth, `translate` for the
+   rise, `rotate` for its tilt — so none of them collide.
+3. **The landing is the handoff.** The flying print is a child of the overlay, and the
+   overlay's veil is opaque. Leaving it up after the print arrives paints porcelain over
+   the hero — an empty screen between a photograph landing and the page it announces.
+   The plate is revealed and the overlay removed in the *same frame*.
+4. **Measure the target, not the transform.** `getBoundingClientRect()` returns the
+   *visual* rect, transforms included. While the gate holds the plate still it must
+   therefore hold it at `transform: none` — held at its entrance `scale(1.05)`, the
+   plate reported 409×508 instead of 390×484 and the print landed 5 % too large and
+   10 px off. The flight now lands within 0.03 px.
+5. **The open flap must fall behind the print.** The body has the flap's triangle
+   punched out, so the flap can sit *behind* the body (`translateZ(-6px)`) and still
+   show through the hole exactly as if it were on top — and once open it can no longer
+   draw its two edges across the rising photograph, which it did.
+6. **The hero plate is not 2:3 on a phone.** It is `aspect-ratio: auto` at
+   `height: max(18rem, 100svh - 22.5rem)` — 390×484 on a 390-wide screen, against
+   365×548 on a laptop. A non-uniform scale would stretch the couple. So the flight
+   animates the *frame's geometry* and lets `object-fit: cover` re-crop each frame: the
+   photograph is never distorted, only the window over it changes. It is the one place
+   this site animates layout instead of transform, on one fixed, out-of-flow element,
+   for 0.9 s — a deliberate exception, written down rather than hidden.
+
+There is no camera dolly any more. It existed only to cover the cut, and a camera that
+pushes in would fight an object that has to land somewhere measured. The envelope
+recedes on its own; the print travels on its own. That also deletes the real performance
+risk of the earlier version — Chrome re-rasterising a photographic layer at 5×.
+
+**The hero's entrance fires on the landing, not during the flight.** The flying print
+covers exactly the plate's rectangle, so anything overlapping it — the names on a phone,
+the ampersand on a laptop, the plate's own foot gradient — would play its entrance
+*hidden underneath* and then appear already finished the instant the print was removed.
+Triggered at the landing, the whole cascade runs in view. The print carries the phone's
+foot falloff with it for the same reason: the plate must not arrive wearing something
+the print never had.
+
+That falloff is a **mask, not a painted veil.** A cream gradient laid over the photograph
+has to end on exactly the colour of the sky beneath it, and it can only do that at one
+screen height and one scroll position — everywhere else it leaves a hairline along the
+plate's bottom edge (measured: 3.6 tone levels). Masking the photograph instead means
+there is no second colour to match, at any height, at any scroll. The mask reaches *full*
+transparency slightly before the edge: the last 3 % of image opacity was itself enough to
+darken the final row by three levels, which is precisely the line it was meant to remove.
+
+The scrollbar is hidden (`scrollbar-width: none`). It only ever appeared when the body
+was unlocked — which is the exact instant the print lands — and its arrival narrows the
+window by ~15 px, jolting every centred element sideways at the worst possible moment.
+`scrollbar-gutter: stable` is the alternative if it should come back.
+
 ### Robustness
 
 All content is visible by default. The `.js-anim` class — the only thing that hides pre-animation state — is added one frame after startup, so if `rAF` never runs, nothing is hidden. Reveals use `IntersectionObserver`, which recomputes its own thresholds, so a page that grows later (images loading, the RSVP card collapsing) can never leave an element stuck at `opacity: 0`. On any init error `.js-anim` is removed and everything shows. Verified with JS disabled, under `prefers-reduced-motion`, and at 360/390/430 px wide.
+
+**With JavaScript off, the gate is removed outright.** `<body class="locked">` is
+hard-coded and the envelope is `position: fixed; z-index: 300`, so without the
+`<noscript>` block in `<head>` a visitor with JS disabled would be sealed out of the
+invitation entirely — scroll locked, content covered. That block is load-bearing.
 
 Reloads restart at the top (`history.scrollRestoration = 'manual'`) because the opening card greets every visit.
 
@@ -62,14 +172,21 @@ Measured in headless Chromium at 390×844, dpr 3.
 
 | | before | now |
 |---|---|---|
-| First screen (gzipped) | 2.17 MB | **≈ 160 KB** |
+| First screen (gzipped) | 2.17 MB | **≈ 120 KB** |
 | Runtime dependencies | GSAP + ScrollTrigger + SplitText + Lenis + OGL (79 KB, 2 CDNs) | **none** |
 | rAF callbacks while idle | unbounded (fullscreen shader + fullscreen `mix-blend-mode` layer) | **0** |
 | Permanent composited layers | 21 | 5 (`.sky-layer`, opacity only) |
+| Gate layers | — | 7, all torn down at 2.9 s |
 | Worst text contrast | 1.24:1 | **≥ 4.5:1** |
 | Longest main-thread task | 1,000 ms | none measurable |
 | Deployed assets | 49.6 MB (47.1 MB unreferenced) | **5.1 MB** |
 | Page height | 8,359 px for 4 filtered photos | 7,226 px for 7 unfiltered ones |
+
+The first screen carries the photograph now. It is no longer something that loads
+quietly behind a closed envelope — it *is* the opening, out of the pocket at 0.6 s — so
+it gets `fetchpriority="high"` back and counts against the first paint: 39 KB of code,
+29 KB of envelope, 51 KB of photograph. That is the honest price of the transition, and
+it is still well under the 160 KB this site started from.
 
 Held by design decisions, not luck:
 
@@ -93,7 +210,12 @@ python -m http.server 8000
 
 ## Image pipeline
 
-`assets/img/` is generated from the untouched originals. The site ships no build step; this is a one-off dev tool.
+`assets/img/` is generated from the untouched originals. The site ships no build step; these are one-off dev tools.
+
+Two of them. `build-images.mjs` makes the photograph variants. **`build-envelope.mjs`
+cuts the front door's envelope into its three layers** and prints the CSS landmarks
+(seal centre, seal diameter, flap apex) that `styles.css` §4 is written against — if
+you ever replace `assets/envelope/source.png`, re-run it and paste the new numbers in.
 
 ```
 npm i sharp        # anywhere

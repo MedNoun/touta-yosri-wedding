@@ -41,6 +41,12 @@
      ne tourne jamais, le contenu reste visible. */
   if (animate) requestAnimationFrame(() => root.classList.add('js-anim'));
 
+  /* Tant que la porte est là, la plaque du hero ne joue PAS son entrée :
+     c'est le tirage qui vient s'y poser. Sans cela, deux exemplaires de
+     la même photographie apparaîtraient à l'écran, l'un montant vers
+     l'autre. Les prénoms, eux, gardent leur cascade. */
+  if (animate && document.getElementById('overlay')) root.classList.add('is-gate');
+
   /* ============================================================
      Ouverture + musique
      ============================================================ */
@@ -58,23 +64,151 @@
 
   let opened = false;
 
+  /* ============================================================
+     L'ouverture — 2,9 s
+
+     La photographie du couple sort de l'enveloppe, puis va se poser
+     exactement là où le hero l'attend. C'est le MÊME fichier des deux
+     côtés (même srcset, même sizes) : rien n'est remplacé, rien n'est
+     fondu — un seul objet traverse la transition, donc il n'y a pas de
+     coupe à cacher.
+
+       0,00  appui, la cire se brise
+       0,34  le rabat s'ouvre
+       0,60  le tirage monte
+       1,05  l'enveloppe s'efface, le sol passe à la porcelaine
+       1,65  relais : le tirage passe sur <body>, l'overlay est retiré
+             (le voile et le premier ciel ont le même dégradé)
+       2,90  le tirage se pose, la plaque prend le relais — et c'est
+             SEULEMENT là que les prénoms, l'esperluette, la date et le
+             compte à rebours entrent, en cascade, à la vue de tous
+     ============================================================ */
+  /* GATE_MS n'est plus que le filet de sécurité : en marche normale
+     c'est l'ATTERRISSAGE qui retire la porte. Laisser l'overlay en
+     place après que le tirage s'est posé afficherait son voile
+     porcelaine par-dessus le hero — un écran vide de 380 ms, entre une
+     photographie qui vient d'arriver et la page qu'elle annonce. */
+  const GATE_MS  = reduced ? 300 : 3150;
+  const FLIGHT_AT = 1650;   // le voile est opaque à 1,65 s   // l'enveloppe est à opacité 0 : le relais est invisible
+  const FLIGHT_MS = 1250;    // doit valoir la transition de .env-flyer.is-flying
+
+
+  const heroPlate = document.querySelector('.hero-plate');
+
+  /* Le relais. On mesure le tirage là où il est, on fabrique un nœud
+     fixed aux mêmes pixels, on masque l'original — puis on donne au
+     nouveau la géométrie de la plaque du hero et on le laisse y aller.
+     Les deux nœuds montrent la même image déjà décodée, au même
+     endroit, à la même image : l'échange ne se voit pas. */
+  function takeFlight() {
+    const print = overlay && overlay.querySelector('.env-print');
+    if (!print || !heroPlate) return null;
+
+    const from = print.getBoundingClientRect();
+    const to   = heroPlate.getBoundingClientRect();
+    if (!from.width || !to.width) return null;
+
+    const flyer = document.createElement('div');
+    flyer.className = 'env-flyer';
+    flyer.setAttribute('aria-hidden', 'true');
+    flyer.appendChild(print.querySelector('picture').cloneNode(true));
+
+    /* Le cadrage d'arrivée n'est pas le même partout : la plaque est un
+       2:3 sur bureau et un plein écran recadré sur mobile. On lit donc
+       object-position sur la vraie plaque au lieu de le supposer. */
+    const heroImg = heroPlate.querySelector('img');
+    const flyImg = flyer.querySelector('img');
+    if (heroImg && flyImg) flyImg.style.objectPosition = getComputedStyle(heroImg).objectPosition;
+
+    flyer.style.left = from.left + 'px';
+    flyer.style.top = from.top + 'px';
+    flyer.style.width = from.width + 'px';
+    flyer.style.height = from.height + 'px';
+    document.body.appendChild(flyer);        // sur <body>, pas dans l'overlay
+    print.style.visibility = 'hidden';
+
+    /* Deux images d'attente : la première pose la géométrie de départ,
+       la seconde déclenche la transition. Sur une seule, le navigateur
+       fusionne les deux styles et il n'y a pas d'animation du tout. */
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      flyer.classList.add('is-flying');
+      flyer.style.left = to.left + 'px';
+      flyer.style.top = to.top + 'px';
+      flyer.style.width = to.width + 'px';
+      flyer.style.height = to.height + 'px';
+    }));
+    return flyer;
+  }
+
+  /* Lever le rideau. Appelé au décollage, pas à l'atterrissage : le
+     voile a atteint l'opacité 1 et porte le dégradé exact du premier
+     ciel, donc retirer l'overlay ne change rien à l'écran — mais cela
+     découvre le hero, et les prénoms peuvent enfin jouer leur entrée
+     À LA VUE. Les laisser se dérouler derrière un voile opaque, c'est
+     ce qui les faisait surgir tout faits à la fin.
+     Le verrou de défilement, lui, tient jusqu'à l'atterrissage. */
+  function revealPage() {
+    if (overlay && overlay.isConnected) overlay.remove();
+  }
+
+  function handoff() {
+    revealPage();
+    /* L'entrée du hero part À L'ATTERRISSAGE, pas pendant le vol.
+       Le tirage en vol recouvre exactement l'emplacement de la plaque :
+       tout ce qui s'y superpose — les prénoms sur mobile, l'esperluette
+       sur bureau, le dégradé de pied — jouait donc son entrée CACHÉ
+       dessous et surgissait tout fait quand le tirage disparaissait.
+       Déclenchée ici, la cascade se déroule en entier sous les yeux du
+       visiteur, et rien ne passe brusquement devant l'image. */
+    root.classList.add('is-open');
+    /* Le verrou ne saute qu'ICI : sinon on peut faire défiler la page
+       sous un tirage encore en vol, et sa cible se déplace. */
+    document.body.classList.remove('locked');
+    root.classList.remove('is-gate');
+    root.classList.add('plate-arrived');
+    const flyer = document.querySelector('.env-flyer');
+    if (flyer) flyer.remove();
+    /* remeasure APRÈS le déverrouillage : c'est lui qui change la mise
+       en page, et measure() lit des getBoundingClientRect(). */
+    if (window.__sky) window.__sky.remeasure();
+  }
+
   function openInvitation() {
     if (opened || !overlay) return;
     opened = true;
-    overlay.classList.add('is-open');
-    document.body.classList.remove('locked');
-    setTimeout(() => { overlay.remove(); }, 1000);
 
-    if (audio) {
-      // preload="none" en HTML : le fichier ne part qu'ici, au geste,
-      // qui est de toute façon la seule chose qui autorise la lecture.
-      audio.volume = 0.5;
-      audio.load();
-      audio.play().then(updateMusicUI).catch(updateMusicUI);
+    /* Programmé EN PREMIER : quoi qu'il arrive ensuite — une image
+       manquante, une exception dans la lecture audio — personne ne
+       reste enfermé devant l'enveloppe. */
+    setTimeout(handoff, GATE_MS);
+
+    if (!reduced) {
+      setTimeout(() => {
+        try { takeFlight(); } catch (err) { /* la porte sort quand même */ }
+        /* Le tirage est parti et vit désormais sur <body> : l'overlay
+           n'a plus rien à porter, on le retire tout de suite. */
+        revealPage();
+        /* L'atterrissage : la plaque devient visible et le tirage part,
+           superposés au pixel, dans la même image. */
+        setTimeout(handoff, FLIGHT_MS);
+      }, FLIGHT_AT);
     }
 
-    root.classList.add('is-open');   // déclenche l'entrée du hero (CSS)
-    if (window.__sky) window.__sky.remeasure();
+    overlay.classList.add('is-open');
+    overlay.blur();
+    overlay.removeAttribute('tabindex');   // plus rien à tabuler pendant la sortie
+
+    try {
+      if (audio) {
+        // preload="none" en HTML : le fichier ne part qu'ici, au geste,
+        // qui est de toute façon la seule chose qui autorise la lecture.
+        audio.volume = 0.5;
+        audio.load();
+        audio.play().then(updateMusicUI).catch(updateMusicUI);
+      }
+    } catch (err) {
+      updateMusicUI();
+    }
   }
 
   if (overlay) {
@@ -455,6 +589,12 @@
     } catch (err) {
       console.warn('[init] repli, révélation complète :', err);
       root.classList.remove('js-anim');
+      /* is-gate maintient la plaque du hero invisible en attendant que
+         le tirage vienne s'y poser. Si l'initialisation a échoué, ce
+         rendez-vous n'aura peut-être jamais lieu : on rend la plaque
+         plutôt que de laisser un trou à la place de la photographie. */
+      root.classList.remove('is-gate');
+      root.classList.add('plate-arrived');
     }
   }
 

@@ -30,13 +30,30 @@
   <link rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=DM+Mono&family=Instrument+Serif:ital@0;1&family=Karla:wght@350..650&display=swap">
 
-  <!-- La photographie du hero, dans le format que le navigateur
-       choisira de toute façon — donc préchargée au bon poids. -->
+  <!-- L'enveloppe : la seule image qui doive être là à la première
+       image dessinée. imagesizes est rigoureusement identique aux
+       attributs sizes de <picture> plus bas — un caractère d'écart et
+       le navigateur télécharge deux fois. -->
+  <link rel="preload" as="image" type="image/avif"
+    imagesrcset="assets/img/env-body-480.avif 480w, assets/img/env-body-720.avif 720w, assets/img/env-body-960.avif 960w"
+    imagesizes="(min-width: 40rem) 34rem, 86vw" fetchpriority="high">
+
+  <!-- La photographie du couple. Elle sort de l'enveloppe à 0,6 s : ce
+       n'est plus quelque chose qui se charge derrière une porte fermée,
+       c'est la porte elle-même. D'où la priorité haute, retrouvée. -->
   <link rel="preload" as="image" type="image/avif"
     imagesrcset="assets/img/couple-embrace-480.avif 480w, assets/img/couple-embrace-640.avif 640w, assets/img/couple-embrace-800.avif 800w"
     imagesizes="(max-width: 54rem) 100vw, min(384px, 42vw)" fetchpriority="high">
 
   <link rel="stylesheet" href="css/styles.css">
+
+  <!-- Sans JavaScript, personne n'ouvre la porte : le verrou de
+       défilement est posé en dur sur <body> et l'enveloppe couvre
+       l'écran. On la retire donc purement et simplement. -->
+  <noscript><style>
+    #overlay { display: none; }
+    body.locked { overflow: auto; height: auto; }
+  </style></noscript>
 </head>
 
 <body class="locked">
@@ -136,18 +153,100 @@
     </defs>
   </svg>
 
-  <!-- ============ Ouverture : le carton d'invitation (déclenche la musique) ============ -->
+  <!-- ============ Ouverture : l'enveloppe (déclenche la musique) ============
+       Une photographie découpée en trois calques (tools/build-envelope.mjs) :
+       le corps, le rabat, la cire. Le rabat tourne, la cire se brise, la
+       carte monte, la caméra avance. Tout ce qui n'a pas été photographié
+       — la doublure, le dos du rabat, la carte — est un dégradé.
+
+       ORDRE EN PROFONDEUR (translateZ, cf. styles.css §4) :
+         doublure < tirage < corps < rabat < lueur < cire
+       La carte est DERRIÈRE le corps : au repos le papier la cache, et
+       elle n'apparaît que par le triangle qu'ouvre le rabat. C'est le
+       même ordre que dans une vraie enveloppe.
+       ============================================================ -->
   <div id="overlay" class="overlay" role="button" tabindex="0" aria-label="Ouvrir l'invitation">
-    <div class="overlay-inner">
-      <div class="card-crest" aria-hidden="true">
-        <svg viewBox="0 0 120 42"><use href="#olive-sprig" /></svg>
+
+    <!-- La caméra. perspective ici, jamais sur un élément qui rogne :
+         un ancêtre qui rogne ou qui baisse son opacité aplatit tout le
+         sous-arbre preserve-3d dans Safari. -->
+    <div class="env-cam" aria-hidden="true">
+      <div class="env-stage">
+        <div class="env-press">
+          <div class="env-sheet">
+
+            <div class="env-layer env-lining"></div>
+
+            <!-- Le tirage. Exactement la même ressource que le hero — même
+                 srcset, même sizes, donc le navigateur choisit le même
+                 fichier et ne le télécharge qu'une fois. C'est ce qui
+                 permet à la photographie de survivre à la transition :
+                 ce n'est pas une copie qui ressemble, c'est la même. -->
+            <div class="env-print">
+              <picture>
+                <source type="image/avif" srcset="assets/img/couple-embrace-480.avif 480w, assets/img/couple-embrace-640.avif 640w, assets/img/couple-embrace-800.avif 800w" sizes="(max-width: 54rem) 100vw, min(384px, 42vw)">
+                <source type="image/webp" srcset="assets/img/couple-embrace-480.webp 480w, assets/img/couple-embrace-640.webp 640w, assets/img/couple-embrace-800.webp 800w" sizes="(max-width: 54rem) 100vw, min(384px, 42vw)">
+                <img src="assets/img/couple-embrace-800.jpg" srcset="assets/img/couple-embrace-480.jpg 480w, assets/img/couple-embrace-640.jpg 640w, assets/img/couple-embrace-800.jpg 800w" sizes="(max-width: 54rem) 100vw, min(384px, 42vw)" width="800" height="1200" alt="" decoding="sync">
+              </picture>
+            </div>
+
+            <div class="env-layer env-body">
+              <picture>
+            <source type="image/avif" srcset="assets/img/env-body-480.avif 480w, assets/img/env-body-720.avif 720w, assets/img/env-body-960.avif 960w" sizes="(min-width: 40rem) 34rem, 86vw">
+            <source type="image/webp" srcset="assets/img/env-body-480.webp 480w, assets/img/env-body-720.webp 720w, assets/img/env-body-960.webp 960w" sizes="(min-width: 40rem) 34rem, 86vw">
+            <img id="env-img" fetchpriority="high" src="assets/img/env-body-960.webp" alt="" decoding="sync">
+          </picture>
+            </div>
+
+            <div class="env-flap">
+              <div class="env-layer env-flap-face">
+                <picture>
+            <source type="image/avif" srcset="assets/img/env-flap-480.avif 480w, assets/img/env-flap-720.avif 720w, assets/img/env-flap-960.avif 960w" sizes="(min-width: 40rem) 34rem, 86vw">
+            <source type="image/webp" srcset="assets/img/env-flap-480.webp 480w, assets/img/env-flap-720.webp 720w, assets/img/env-flap-960.webp 960w" sizes="(min-width: 40rem) 34rem, 86vw">
+            <img src="assets/img/env-flap-960.webp" alt="" decoding="sync">
+          </picture>
+              </div>
+              <div class="env-layer env-flap-back"></div>
+            </div>
+
+            <div class="env-layer env-glow"></div>
+
+            <div class="env-seal env-seal--l">
+              <picture>
+            <source type="image/avif" srcset="assets/img/env-seal-148.avif 148w, assets/img/env-seal-222.avif 222w" sizes="(min-width: 40rem) 6.6rem, 16.8vw">
+            <source type="image/webp" srcset="assets/img/env-seal-148.webp 148w, assets/img/env-seal-222.webp 222w" sizes="(min-width: 40rem) 6.6rem, 16.8vw">
+            <img src="assets/img/env-seal-222.webp" alt="" decoding="sync">
+          </picture>
+            </div>
+            <div class="env-seal env-seal--r">
+              <picture>
+            <source type="image/avif" srcset="assets/img/env-seal-148.avif 148w, assets/img/env-seal-222.avif 222w" sizes="(min-width: 40rem) 6.6rem, 16.8vw">
+            <source type="image/webp" srcset="assets/img/env-seal-148.webp 148w, assets/img/env-seal-222.webp 222w" sizes="(min-width: 40rem) 6.6rem, 16.8vw">
+            <img src="assets/img/env-seal-222.webp" alt="" decoding="sync">
+          </picture>
+            </div>
+
+          </div>
+        </div>
       </div>
+    </div>
+
+    <!-- Le voile : exactement le fond de .sky-layer[data-t="0"], et tous
+         deux en fixed inset:0 — donc la même géométrie au pixel près.
+         Quand l'enveloppe est retirée, il ne se passe rien à l'écran.
+         C'est LUI qui fait la sortie : baisser l'opacité de #overlay
+         aplatirait la scène 3D sous Safari. -->
+    <div class="env-veil" aria-hidden="true"></div>
+
+    <!-- La photographie imprime déjà les prénoms et la date ; ce bloc
+         existe pour les lecteurs d'écran et pour un rendu sans images. -->
+    <div class="overlay-inner vh">
       <p class="overlay-kicker">Samedi 26 septembre 2026</p>
       <h2 class="overlay-names">Eya <span class="amp">&amp;</span> Yosri</h2>
-      <div class="overlay-rule" aria-hidden="true"></div>
       <p class="overlay-title">Vous êtes invités</p>
-      <p class="overlay-hint"><span>Toucher pour ouvrir</span></p>
     </div>
+
+    <p class="overlay-hint"><span>Toucher pour ouvrir</span></p>
   </div>
 
   <!-- ============ Musique de fond ============
@@ -187,7 +286,7 @@
               <img src="assets/img/couple-embrace-800.jpg"
                 srcset="assets/img/couple-embrace-480.jpg 480w, assets/img/couple-embrace-640.jpg 640w, assets/img/couple-embrace-800.jpg 800w"
                 sizes="(max-width: 54rem) 100vw, min(384px, 42vw)" width="800" height="1200" fetchpriority="high"
-                decoding="async" alt="Eya et Yosri enlacés dans la lumière du soir, elle tenant son bouquet.">
+                decoding="async" alt="Eya et Yosri sur la route au crépuscule, lunettes de soleil, la boutonnière de soucis au revers.">
             </picture>
           </div>
 
@@ -308,7 +407,7 @@
               <img src="assets/img/couple-embrace-640.jpg"
                 srcset="assets/img/couple-embrace-480.jpg 480w, assets/img/couple-embrace-640.jpg 640w, assets/img/couple-embrace-800.jpg 800w"
                 sizes="(max-width: 54rem) 100vw, min(460px, 42vw)" width="800" height="1200" loading="lazy"
-                decoding="async" alt="Eya et Yosri se regardent, le soleil derrière eux.">
+                decoding="async" alt="Eya et Yosri posent sur la route, les collines et le soleil couchant derrière eux.">
             </picture>
             <figcaption>Le cadre entier, cette fois</figcaption>
           </figure>

@@ -96,6 +96,26 @@
   --ease-lux:  cubic-bezier(.19, 1, .22, 1);
   --ease-soft: cubic-bezier(.4, 0, .2, 1);
   --ease-out:  cubic-bezier(.21, .72, .35, 1);
+  /* Le vol du tirage. --ease-lux (.19,1,.22,1) part trop vite et finit
+     en rampant : on lit un arrêt, pas une arrivée. Celle-ci décélère
+     régulièrement jusqu'au bout. */
+  --ease-flight: cubic-bezier(.30, .68, .20, 1);
+
+  /* Le pied de la photographie sur mobile. C'est un MASQUE, pas un
+     dégradé peint : la photographie s'efface et laisse voir le fond
+     réel, au lieu d'être recouverte d'une crème qui doit ensuite
+     tomber juste. Un dégradé peint ne peut coïncider qu'à une seule
+     hauteur d'écran et à une seule position de défilement — d'où le
+     filet visible au bas de la plaque. Un masque n'a rien à faire
+     coïncider : il n'y a plus de seconde couleur.
+     Le profil reprend celui de l'ancien voile (46 % de bas de cadre,
+     .34 / .80 / .97) converti en opacité de l'image, avec une nuance :
+     il atteint la transparence COMPLÈTE à 96 %, pas 97 % d'opacité au
+     ras du bord. Les 3 % de photographie qui restaient suffisaient à
+     assombrir la dernière ligne de 3 niveaux — soit, exactement, le
+     filet que l'on voulait supprimer. */
+  --photo-fade: linear-gradient(180deg,
+    #000 54%, rgba(0, 0, 0, .66) 69.6%, rgba(0, 0, 0, .18) 86%, transparent 96%, transparent 100%);
 }
 
 /* ============================================================
@@ -105,7 +125,18 @@
 *, *::before, *::after { box-sizing: border-box; }
 * { margin: 0; padding: 0; }
 
-html { -webkit-text-size-adjust: 100%; }
+html {
+  -webkit-text-size-adjust: 100%;
+  /* Pas de barre de défilement. Elle n'apparaissait qu'au déverrouillage
+     du corps — c'est-à-dire À L'INSTANT PRÉCIS où le tirage se pose —
+     et son arrivée rétrécit la fenêtre de ~15 px : tout le contenu
+     centré sautait de 7 px au pire moment possible. L'invitation tient
+     en une page et porte déjà son invite à défiler.
+     (Si on la veut de retour : `scrollbar-gutter: stable` réserve la
+     gouttière en permanence et supprime le saut sans la masquer.) */
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar { width: 0; height: 0; }
 
 /* Lenis ne pilote que la molette (voir js/main.js) ; sur tactile on
    laisse le défilement natif, qui est plus fluide que tout ce que
@@ -280,89 +311,291 @@ textarea:focus-visible {
 }
 
 /* ============================================================
-   4 · LE CARTON D'INVITATION
+   4 · LA PORTE D'ENTRÉE — l'enveloppe
+
+   Une photographie découpée en trois calques par
+   tools/build-envelope.mjs, remontée en 3D et animée au seul
+   transform/opacity. Repères relevés sur la source (1224 × 906) :
+
+     cachet   50,90 % × 62,91 %,  diamètre 19,44 % de la largeur
+     pointe du rabat            50,90 % × 67,33 %
+     charnière                  le bord haut de la feuille
+
+   TROIS PIÈGES, DANS L'ORDRE OÙ ILS MORDENT
+
+   1. Safari aplatit preserve-3d dès qu'un ANCÊTRE porte une
+      opacité < 1, un clip-path, un filter ou overflow:hidden.
+      D'où : overflow sur .overlay, perspective sur .env-cam, et
+      surtout AUCUNE transition d'opacité sur #overlay — la sortie
+      se fait par .env-veil qui, lui, apparaît par-dessus.
+   2. transform est UNE propriété : deux animations dessus, une seule
+      gagne. Un canal par élément — .env-press l'appui, .env-sheet le
+      retrait, .env-flap la rotation — et tout décalage statique
+      (translateZ) est réécrit dans CHAQUE image-clé. Le tirage, lui,
+      dispose de trois propriétés distinctes : transform (profondeur),
+      translate (la montée) et rotate (l'inclinaison).
+   3. Pas de will-change : une animation de transform se promeut
+      toute seule, et will-change est justement l'un des déclencheurs
+      d'aplatissement de Safari.
    ============================================================ */
 
 .overlay {
   position: fixed;
   inset: 0;
   z-index: 300;
-  display: grid;
-  place-items: center;
-  padding: var(--gutter);
+  overflow: hidden;
   background:
     radial-gradient(120% 90% at 50% 0%, #3A2C24 0%, #251C17 52%, #1A1310 100%);
   cursor: pointer;
   touch-action: none;
   overscroll-behavior: contain;
-  transition: opacity .95s var(--ease-lux), visibility .95s var(--ease-lux);
 }
-.overlay.is-open { opacity: 0; visibility: hidden; }
+.overlay.is-open { cursor: default; }
 
-/* Le carton lui-même : une vraie surface, pas un vide bordé.
-   La composition est optiquement centrée, sans moitié basse morte. */
-.overlay-inner {
-  position: relative;
-  width: min(30rem, 100%);
-  padding: clamp(2.75rem, 8vw, 4.25rem) clamp(1.75rem, 6vw, 3.25rem) clamp(2.25rem, 6vw, 3rem);
-  text-align: center;
-  background: linear-gradient(168deg, #FCF9F4 0%, var(--porcelain) 46%, #F3EBE0 100%);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, .6) inset,
-    0 40px 90px -50px rgba(0, 0, 0, .85),
-    0 4px 18px -8px rgba(0, 0, 0, .4);
-}
-.overlay-inner::after {
-  content: '';
+/* La caméra. 1250 px de perspective : à z = 900 l'échelle vaut
+   1250 / (1250 − 1000) = 5×, et elle croît en hyperbole — le dernier
+   tiers avale l'écran, ce qu'un scale() linéaire ne fait jamais. */
+.env-cam {
   position: absolute;
-  inset: 9px;
-  border: 1px solid var(--rule-2);
-  pointer-events: none;
+  inset: 0;
+  z-index: 1;
+  perspective: 1250px;
+  perspective-origin: 50% 56%;
 }
 
-/* L'ornement : dessiné, pas importé. Une branche d'olivier au trait,
-   à l'échelle de la carte. (svg injecté par js/main.js) */
-.card-crest {
-  width: clamp(9rem, 34vw, 12.5rem);
-  margin: 0 auto clamp(1.35rem, 4vw, 1.9rem);
-  color: var(--clay);
-}
-.card-crest svg { width: 100%; height: auto; display: block; overflow: visible; }
+.env-stage,
+.env-press { position: absolute; inset: 0; transform-style: preserve-3d; }
 
-.overlay-kicker {
-  font-family: var(--font-mono);
-  font-size: .655rem;
-  letter-spacing: .28em;
-  text-transform: uppercase;
-  color: var(--clay);
+/* La feuille. Son rapport EST celui du découpage : c'est ce qui fait
+   que tous les repères en pourcentage tombent juste. */
+.env-sheet {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(34rem, 86vw);
+  aspect-ratio: 1224 / 906;
+  transform: translate(-50%, -50%);
+  transform-style: preserve-3d;
 }
-.overlay-names {
-  font-size: clamp(2.9rem, 13vw, 4.1rem);
-  line-height: 1;
-  color: var(--ink);
-  margin: clamp(.9rem, 3vw, 1.25rem) 0 clamp(1rem, 3vw, 1.35rem);
+
+.env-layer { position: absolute; inset: 0; }
+.env-layer picture,
+.env-layer img,
+.env-seal picture,
+.env-seal img { display: block; width: 100%; height: 100%; }
+
+/* --- l'ordre en profondeur ----------------------------------
+
+   doublure (−10) · rabat (−6) · tirage (1) · corps (3) · lueur (5)
+   · cire (6)
+
+   Il n'y a plus de « cicatrice » : le papier sous la cire est rapiécé
+   dans l'image même (tools/build-envelope.mjs, inpaintDisc), à partir
+   de l'anneau qui entoure le cachet. Un disque dessiné en CSS ne
+   pouvait pas porter à la fois la lumière de gauche et l'ombre que la
+   cire jette à droite — il se lisait comme une pastille grise dès que
+   les deux moitiés s'envolaient.
+
+   Le rabat est DERRIÈRE le corps, pas devant : le corps a précisément
+   son triangle évidé (build-envelope.mjs), donc le rabat se voit par le
+   trou, exactement comme s'il était posé dessus — et une fois ouvert il
+   ne peut plus barrer la photographie qui monte. C'était le défaut
+   visible : les deux arêtes du rabat passaient EN AVANT du tirage.
+
+   Le tirage (1) reste sous le corps (3) et sous la cicatrice (2) : sa
+   partie basse est encore dans la poche, et c'est ce qui le fait sortir
+   de l'enveloppe au lieu de glisser dessus. */
+.env-lining { transform: translateZ(-10px); }
+.env-print  { transform: translateZ(1px); }
+.env-body   { transform: translateZ(3px); }
+.env-flap   { transform: translateZ(-6px) rotateX(0deg); }
+.env-glow   { transform: translateZ(5px); }
+.env-seal   { transform: translateZ(6px); }
+
+/* La doublure : aucune enveloppe n'a été photographiée ouverte, cet
+   intérieur est dessiné. Découpé au triangle du rabat, très légèrement
+   rentré — le bord du papier est déchiré, un triangle plein dépasserait
+   aux deux coins du haut. La bande sombre est l'ombre que le rabat
+   levé jette dans la poche. */
+/* GÉOMÉTRIE — la doublure doit DÉBORDER le trou du corps, jamais y être
+   rentrée. Rentrée (elle l'était de 3 % / 1,4 %), il reste le long de
+   chaque diagonale un coin que ni la doublure ni le corps ne peignent :
+   le fond sombre de la page s'y voyait, en deux traits noirs. Et comme
+   le retrait était constant en pourcentage alors que les deux arêtes
+   convergent vers la pointe, ces traits changeaient d'épaisseur sur
+   leur longueur — c'est le défaut signalé. Le sommet descend donc plus
+   bas que celui du corps (68,6 % contre 67,33 %) et les bords partent
+   des coins.
+
+   COULEUR — relevée sur la photographie, pas inventée :
+     papier en lumière  #F6E2CE      papier à mi-ombre  #EDD8C4
+     papier dans l'ombre #C5B9AF     lin (référence)    #7D6D5D
+   L'ancienne doublure empruntait --champagne et --sand, plus froids et
+   plus roses que ce papier-là : d'où l'intérieur « blanc » qui ne
+   collait pas au reste. Ici on est dans la poche, donc sous le papier
+   éclairé, avec l'ombre que le rabat y jette. */
+.env-lining {
+  clip-path: polygon(0% .2%, 100% .2%, 50.90% 68.6%);
+  background:
+    linear-gradient(180deg, rgba(70, 52, 40, .40) 0%, rgba(70, 52, 40, .15) 19%, rgba(70, 52, 40, 0) 46%),
+    linear-gradient(168deg, #E3D0BA 0%, #D9C4AC 42%, #CDB69C 100%);
 }
-.overlay-rule {
-  width: 2.5rem;
-  height: 1px;
-  margin: 0 auto;
-  background: var(--rule-2);
+
+/* Le tirage. Il est DERRIÈRE le corps : au repos le papier le cache,
+   et il ne se découvre que par le triangle qu'ouvre le rabat — on voit
+   la photographie AVANT qu'elle ne sorte, ce qui est la moitié du
+   plaisir.
+
+   93 % de la hauteur de l'enveloppe pour 46 % de sa largeur : un
+   portrait 2:3 ne rentre pas dans une enveloppe à l'italienne, et il
+   en sort pourtant plus qu'il n'y tenait. C'est le mensonge de la
+   scène, assumé — l'œil lit « photographie que l'on retire » bien
+   avant de faire de la géométrie. Ce qu'il gagne en échange : le
+   cadre est déjà celui du hero, donc le vol n'a rien à déformer. */
+.env-print {
+  position: absolute;
+  left: 27%;
+  top: 3.5%;
+  width: 46%;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  opacity: 0;
+  rotate: -1.5deg;                 /* comme un tirage à demi tiré */
+  background: var(--champagne);
+  box-shadow: 0 26px 50px -30px rgba(46, 35, 29, .75);
 }
-.overlay-title {
-  font-family: var(--font-mono);
-  font-size: .68rem;
-  letter-spacing: .3em;
-  text-transform: uppercase;
-  color: var(--accent-ink);
-  margin-top: clamp(1rem, 3vw, 1.35rem);
+/* Le même filet que la plaque du hero (§ hero, `outline: 1px`) et pour
+   la même raison : le haut de cette photographie est en haute lumière
+   et se dissout dans le fond clair sans lui. Le porter dès l'enveloppe
+   évite aussi qu'il n'apparaisse d'un coup à l'atterrissage — le tirage
+   doit être, à la dernière image, exactement la plaque. */
+.env-print,
+.env-flyer { outline: 1px solid var(--rule-2); outline-offset: -1px; }
+
+.env-print picture { display: block; width: 100%; height: 100%; }
+.env-print img { width: 100%; height: 100%; object-fit: cover; object-position: center 34%; }
+
+/* Le tirage en vol. Il quitte la scène 3D au moment où l'enveloppe a
+   fini de s'effacer : plus rien ne l'occulte, donc le relais entre les
+   deux nœuds est invisible — mêmes pixels, même place, même instant.
+
+   Ici, et ici seulement, on anime la GÉOMÉTRIE (left/top/width/height)
+   et non un transform. C'est délibéré : la plaque du hero n'a pas le
+   rapport 2:3 sur mobile (styles.css §hero, `aspect-ratio: auto`), et
+   une mise à l'échelle non uniforme étirerait la photographie. En
+   animant le cadre, c'est `object-fit: cover` qui recadre à chaque
+   image — la photographie n'est jamais déformée, seule la fenêtre
+   posée dessus change. Un seul élément, hors flux, pendant 0,8 s :
+   aucune autre boîte de la page n'est recalculée. */
+.env-flyer {
+  position: fixed;
+  /* Au-dessus de la page, mais PLUS dans l'overlay : celui-ci est
+     retiré dès que le voile est opaque (1,65 s), pour que les prénoms
+     jouent leur entrée SOUS LES YEUX du visiteur au lieu de se dérouler
+     derrière un rideau et d'apparaître déjà faits. Le voile et
+     .sky-layer[data-t="0"] portent le même dégradé, tous deux en fixed
+     inset:0 — le retrait ne se voit pas. */
+  z-index: 200;
+  overflow: hidden;
+  background: var(--champagne);
+  box-shadow: 0 26px 50px -30px rgba(46, 35, 29, .75);
+  rotate: -1.5deg;
 }
+.env-flyer picture { display: block; width: 100%; height: 100%; }
+.env-flyer img { width: 100%; height: 100%; object-fit: cover; }
+.env-flyer.is-flying {
+  rotate: 0deg;
+  /* l'ombre du tirage rejoint CELLE DE LA PLAQUE, pas le néant */
+  box-shadow: 0 40px 80px -46px rgba(46, 35, 29, .5);
+  transition:
+    left 1.25s var(--ease-flight), top 1.25s var(--ease-flight),
+    width 1.25s var(--ease-flight), height 1.25s var(--ease-flight),
+    rotate 1.1s var(--ease-flight), box-shadow 1.25s var(--ease-soft);
+}
+
+/* Le rabat tourne autour du bord haut de la feuille. Son dos est un
+   dégradé : la même feuille vue de l'autre côté, qui prend la lumière.
+   backface-visibility sur les deux faces — Safari rend mal une bascule
+   qui ne compte que sur le culling. */
+.env-flap {
+  position: absolute;
+  inset: 0;
+  transform-origin: 50% 0%;
+  transform-style: preserve-3d;
+}
+.env-flap-face { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.env-flap-back {
+  /* même règle : déborder, jamais rentrer. */
+  clip-path: polygon(0% .2%, 100% .2%, 50.90% 68.6%);
+  transform: rotateY(180deg);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  /* C'est la MÊME feuille vue de l'autre côté : elle doit être le papier
+     de la photographie, pas la porcelaine du site. L'ancien dégradé
+     partait de #FBF6EE — presque blanc — et c'est lui qui donnait au
+     rabat ouvert son air de carton découpé posé sur la photo. */
+  background:
+    linear-gradient(180deg, rgba(70, 52, 40, .22) 0%, rgba(70, 52, 40, .05) 27%,
+                            rgba(255, 255, 255, .07) 64%, rgba(70, 52, 40, .08) 100%),
+    linear-gradient(168deg, #F7E4D1 0%, #F1DCC7 46%, #E4CDB6 100%);
+}
+
+/* La lueur sous le pouce. Alpha pur : ni mix-blend-mode ni filter. */
+.env-glow {
+  opacity: 0;
+  background: radial-gradient(13% 17.56% at 50.9% 62.91%,
+    rgba(255, 196, 120, .90) 0%, rgba(200, 94, 36, .38) 44%, rgba(200, 94, 36, 0) 74%);
+}
+
+/* La cire, en deux moitiés. Le tracé de la cassure est partagé : les
+   deux découpes se referment exactement l'une sur l'autre, donc au
+   repos on ne voit ni fente ni recouvrement. */
+.env-seal {
+  position: absolute;
+  left: 40.85%;
+  top: 49.34%;
+  width: 20.10%;
+  aspect-ratio: 1;
+}
+/* La moitié gauche DÉBORDE de 3,5 % sur la droite. Les deux tracés
+   partageaient exactement la même cassure, et deux bords anticrénelés
+   accolés laissent passer le fond : c'était le trait gris en zigzag
+   au milieu de la cire. Les deux moitiés montrent la même image — le
+   recouvrement ne se voit pas, l'accolement se voyait toujours.
+   La cassure LUE reste celle de la moitié droite, inchangée ; quand
+   elles s'écartent, le jeu supplémentaire vaut 3 px. */
+.env-seal--l {
+  clip-path: polygon(0 0, 55.5% 0, 49.5% 18%, 57.5% 34%, 47.5% 52%, 56.5% 70%, 50.5% 88%, 54.5% 100%, 0 100%);
+}
+.env-seal--r {
+  clip-path: polygon(52% 0, 100% 0, 100% 100%, 51% 100%, 47% 88%, 53% 70%, 44% 52%, 54% 34%, 46% 18%);
+}
+
+/* Le voile. Rigoureusement le fond de .sky-layer[data-t="0"], et tous
+   deux en fixed inset:0 : même géométrie au pixel. Quand l'enveloppe
+   est retirée, il ne se passe rien à l'écran. */
+.env-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 0;            /* SOUS l'enveloppe et sous le tirage : c'est le
+                            sol qui change, plus un rideau que l'on tire */
+  opacity: 0;
+  background:
+    radial-gradient(120% 78% at 78% 6%, rgba(255, 251, 243, .95) 0%, rgba(255, 247, 234, .42) 30%, transparent 62%),
+    linear-gradient(180deg, #F1EBE0 0%, #F7F2E9 44%, #FCF8F1 80%, #FEFCF8 100%);
+}
+
+/* --- l'invite ------------------------------------------------ */
 .overlay-hint {
-  margin-top: clamp(1.75rem, 5vw, 2.5rem);
+  position: absolute;
+  left: 0; right: 0;
+  bottom: clamp(1.5rem, 6svh, 3.5rem);
+  text-align: center;
   font-family: var(--font-mono);
   font-size: .655rem;
   letter-spacing: .16em;
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--ink-light-2);
 }
 .overlay-hint span {
   display: inline-block;
@@ -373,10 +606,128 @@ textarea:focus-visible {
   50%      { opacity: 1; }
 }
 
+/* Les anciens styles du carton servent encore : le bloc texte est
+   passé en .vh, pour les lecteurs d'écran et le rendu sans images. */
+.overlay-kicker {
+  font-family: var(--font-mono);
+  font-size: .655rem;
+  letter-spacing: .28em;
+  text-transform: uppercase;
+  color: var(--clay);
+}
+.overlay-names { font-size: clamp(2.9rem, 13vw, 4.1rem); line-height: 1; color: var(--ink); }
+.overlay-title {
+  font-family: var(--font-mono);
+  font-size: .68rem;
+  letter-spacing: .3em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+}
+
+/* ============================================================
+   4b · L'OUVERTURE — 2,05 s, tout en CSS, une seule classe.
+   ============================================================ */
+
+#overlay.is-open { pointer-events: none; }
+
+/* Le travelling a disparu. Il n'était là que pour couvrir la coupe :
+   on fonçait à 5× dans une carte blanche pendant qu'on remplaçait le
+   décor. Puisque la photographie traverse désormais la transition,
+   il n'y a plus de coupe à couvrir — et une caméra qui avance se
+   battrait avec un objet qui doit se poser à un endroit mesuré.
+   L'enveloppe s'efface donc sur place, et c'est le tirage qui voyage.
+   Bénéfice de bord : Chrome ne re-trame plus un calque photographique
+   à 5×, ce qui était le vrai risque de performance de la version
+   précédente. */
+
+#overlay.is-open .overlay-hint  { animation: env-hint-out .18s var(--ease-soft) both; }
+#overlay.is-open .env-press     { animation: env-press    .34s var(--ease-out)  .02s both; }
+#overlay.is-open .env-glow      { animation: env-glow     .50s var(--ease-soft) .06s both; }
+#overlay.is-open .env-seal--l   { animation: env-crack-l  .60s var(--ease-out)  .10s both; }
+#overlay.is-open .env-seal--r   { animation: env-crack-r  .60s var(--ease-out)  .10s both; }
+#overlay.is-open .env-flap      { animation: env-flap     .78s var(--ease-lux)  .34s both; }
+#overlay.is-open .env-print     { animation: env-rise     .88s var(--ease-lux)  .60s both,
+                                             env-print-in .20s linear           .44s both; }
+
+/* L'enveloppe se retire : elle descend un peu et s'efface, toutes ses
+   pièces ensemble. À 1,40 s il n'en reste rien — c'est la condition
+   pour que le relais vers le tirage en vol ne se voie pas. */
+#overlay.is-open .env-body,
+#overlay.is-open .env-flap-face,
+#overlay.is-open .env-flap-back,
+#overlay.is-open .env-lining    { animation: env-fade     .50s var(--ease-soft) 1.05s both; }
+#overlay.is-open .env-sheet     { animation: env-sink     .60s var(--ease-soft) 1.05s both; }
+#overlay.is-open .env-veil      { animation: env-veil     .60s var(--ease-soft) 1.05s both; }
+
+@keyframes env-hint-out { to { opacity: 0; } }
+@keyframes env-fade     { to { opacity: 0; } }
+@keyframes env-veil     { to { opacity: 1; } }
+@keyframes env-print-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* L'appui du pouce. Il revient à 1 : la feuille doit être à son échelle
+   exacte quand on mesure le tirage pour le relais. */
+@keyframes env-press {
+  0%   { transform: scale(1); }
+  53%  { transform: scale(.986); }
+  100% { transform: scale(1); }
+}
+
+@keyframes env-glow {
+  0% { opacity: 0; } 34% { opacity: .9; } 100% { opacity: 0; }
+}
+
+/* La cire éclate. translateZ(6px) réécrit partout : l'oublier ferait
+   retomber les deux moitiés au fond de la pile. */
+@keyframes env-crack-l {
+  0%   { transform: translateZ(6px) translate(0, 0) rotate(0deg);          opacity: 1; }
+  20%  { transform: translateZ(6px) translate(-2%, -3%) rotate(-4deg);     opacity: 1; }
+  100% { transform: translateZ(6px) translate(-26%, 34%) rotate(-26deg);   opacity: 0; }
+}
+@keyframes env-crack-r {
+  0%   { transform: translateZ(6px) translate(0, 0) rotate(0deg);          opacity: 1; }
+  20%  { transform: translateZ(6px) translate(2%, -2%) rotate(5deg);       opacity: 1; }
+  100% { transform: translateZ(6px) translate(27%, 38%) rotate(29deg);     opacity: 0; }
+}
+
+/* translateZ(-6px) DANS LES DEUX images-clés, pas seulement dans la
+   règle de base : une animation en cours écrase la règle. Le rabat est
+   resté à +4px — donc DEVANT le tirage — tant que ce translateZ n'a
+   été corrigé qu'à un seul endroit. C'est exactement le piège n° 2
+   écrit dix lignes plus haut. */
+@keyframes env-flap {
+  0%   { transform: translateZ(-6px) rotateX(0deg); }
+  100% { transform: translateZ(-6px) rotateX(-155deg); }
+}
+
+/* Le tirage monte. Canal `translate`, indépendant de `transform` (qui
+   porte la profondeur) et de `rotate` (qui porte l'inclinaison) —
+   trois propriétés, trois canaux, aucune collision. */
+@keyframes env-rise {
+  0%   { translate: 0 0; }
+  100% { translate: 0 -46%; }
+}
+
+/* L'enveloppe s'enfonce en s'effaçant. Le tirage n'en fait pas partie
+   au moment du vol : il aura été repris par .env-flyer, en position
+   fixed, hors de cette pile. */
+@keyframes env-sink {
+  0%   { transform: translate(-50%, -50%) scale(1); }
+  100% { transform: translate(-50%, -46%) scale(.965); }
+}
+
 /* ============================================================
    5 · BOUTON MUSIQUE
    Pas de backdrop-filter : un calque permanent de moins.
    ============================================================ */
+
+/* Le bouton est sous l'enveloppe (z-index 120 contre 300) : sans ceci
+   il apparaîtrait d'un coup au retrait de la porte, au lieu d'arriver
+   avec le hero. */
+html.js-anim .music-toggle { opacity: 0; }
+html.js-anim.is-open .music-toggle {
+  opacity: 1;
+  transition: opacity .6s var(--ease-out) .35s;
+}
 
 .music-toggle {
   position: fixed;
@@ -557,6 +908,14 @@ main { position: relative; }
 .hero-countdown {
   display: grid;
   grid-auto-flow: column;
+  /* Colonnes ÉGALES. Sans cela, chaque colonne se dimensionne sur son
+     libellé — « jours » est court, « secondes » est long — et les
+     quatre nombres s'écartent de plus en plus vers la droite : 57 px,
+     puis 65, puis 72. Chaque nombre est pourtant bien centré sur son
+     libellé ; c'est la CADENCE qui est fausse, et sur un compte à
+     rebours l'œil ne lit que ça. Des chiffres tabulaires dans des
+     colonnes qui ne le sont pas ne servent à rien. */
+  grid-auto-columns: 1fr;
   gap: clamp(1.1rem, 4vw, 2.25rem);
   margin-top: clamp(1.5rem, 4vh, 2.25rem);
   border-top: 1px solid var(--rule-2);
@@ -576,6 +935,10 @@ main { position: relative; }
   font-family: var(--font-mono);
   font-size: .58rem;
   letter-spacing: .18em;
+  /* L'interlettrage s'ajoute AUSSI après la dernière lettre : la boîte
+     traîne un .18em vide à droite, et le libellé se retrouve centré un
+     demi-cran trop à gauche sous son nombre. On reprend ce vide. */
+  margin-right: -.18em;
   text-transform: uppercase;
   color: var(--ink-3);
 }
@@ -624,7 +987,15 @@ main { position: relative; }
    bande, pas étalé sur toute une image en haute lumière.
    ============================================================ */
 @media (max-width: 54rem) {
-  .hero { padding: 0 0 var(--s4); }
+  /* align-content:start, et non center.
+     Le hero fait 100svh ; son contenu, lui, est un peu plus court, et
+     centré il laissait 6 à 9 px de vide AU-DESSUS de la photographie —
+     la plaque ne touchait donc jamais le haut du cadre. Ancré en haut,
+     l'image affleure le bord, et le mou éventuel passe entièrement en
+     bas, sous l'invite à défiler. C'est aussi le comportement sûr si le
+     contenu venait à dépasser : il déborde vers le bas, pas des deux
+     côtés à la fois. */
+  .hero { padding: 0 0 var(--s4); align-content: start; }
   .hero-stage { grid-template-columns: 1fr; column-gap: 0; }
 
   /* Photographie et noms dans LA MÊME cellule. Sans `grid-area`, trois
@@ -644,17 +1015,31 @@ main { position: relative; }
     outline: 0;
   }
   .hero-plate img { object-position: center 26%; }
-  .hero-plate::after {
-    content: '';
-    position: absolute;
-    inset: auto 0 0 0;
-    height: 46%;
-    background: linear-gradient(180deg,
-      rgba(250, 244, 236, 0) 0%,
-      rgba(250, 245, 237, .34) 34%,
-      rgba(251, 246, 239, .80) 68%,
-      rgba(252, 248, 242, .97) 100%);
+
+  /* La plaque n'a ni filet ni ombre sur mobile : le tirage non plus,
+     sinon l'atterrissage se verrait. */
+  .env-print,
+  .env-flyer { outline: 0; }
+  .env-flyer.is-flying { box-shadow: 0 0 0 -30px rgba(46, 35, 29, 0); }
+
+  /* Le tirage porte le MÊME masque que la plaque, dès l'enveloppe.
+     Il ne se voit pas pendant la montée : les 46 % masqués sont
+     précisément la part restée dans la poche, derrière le corps. Quand
+     l'enveloppe s'efface, le pied de la photographie se fond dans la
+     porcelaine — c'est déjà l'image d'arrivée. Rien n'apparaît d'un
+     coup, et rien n'a à coïncider au moment de l'atterrissage. */
+  .env-print,
+  .env-flyer {
+    -webkit-mask-image: var(--photo-fade);
+    mask-image: var(--photo-fade);
   }
+  /* Le voile peint est remplacé par le masque : plus de bord entre la
+     plaque et le ciel, à n'importe quelle hauteur d'écran. */
+  .hero-plate {
+    -webkit-mask-image: var(--photo-fade);
+    mask-image: var(--photo-fade);
+  }
+  .hero-plate::after { content: none; }
 
   .hero-title {
     position: relative;
@@ -670,6 +1055,18 @@ main { position: relative; }
     font-size: min(23vw, 5.8rem);
   }
   .hero-name {
+    /* Deux colonnes égales, comme le `1fr auto 1fr` du bureau.
+       Sans cela les deux prénoms sont de simples éléments flex posés
+       bout à bout : le groupe est bien centré, mais l'esperluette —
+       qui est le pivot optique de tout le bloc — se retrouve décalée
+       de la moitié de l'écart de largeur entre « Yosri » (148,5 px) et
+       « Eya » (109,2 px), soit près de 20 px à gauche du centre.
+       À largeurs égales, elle retombe sur l'axe, et les prénoms
+       viennent s'appuyer contre elle grâce aux `text-align` déjà
+       posés sur --l et --r. */
+    flex: 1 1 0;
+    min-width: 0;
+    white-space: nowrap;
     font-size: 1em;
     line-height: .9;
     color: var(--ink);
@@ -684,7 +1081,15 @@ main { position: relative; }
   }
 
   .hero-meta { margin-top: var(--s3); padding: 0 var(--gutter); }
-  .hero-when { flex-direction: column; gap: .35rem; }
+  /* En colonne, l'axe transversal devient l'horizontale — et
+     `align-items: baseline`, hérité de la règle de base, n'y veut rien
+     dire : il retombe sur `flex-start`. Les deux lignes se calaient
+     donc à GAUCHE d'une boîte dont la largeur est celle de la plus
+     longue (le lieu). La date, plus courte de 34,9 px, se retrouvait
+     décalée de la moitié — 17,5 px — pendant que le lieu, qui remplit
+     la boîte, tombait juste : d'où une date qui semblait fuir vers la
+     gauche alors que tout le reste était centré. */
+  .hero-when { flex-direction: column; align-items: center; gap: .35rem; }
   .hero-when i { display: none; }
   .scroll-cue { margin-top: var(--s3); }
   .scroll-cue .scroll-line { height: 1.75rem; }
@@ -1400,6 +1805,32 @@ html.js-anim.is-open .hero-amp {
     scale .8s var(--ease-lux) var(--d, 0s);
 }
 
+/* LA PLAQUE CÈDE LE PAS.
+   Pendant la porte, la plaque du hero reste immobile et invisible : le
+   tirage qui sort de l'enveloppe est en train d'aller se poser dessus,
+   et deux exemplaires de la même photographie à l'écran ruineraient
+   l'illusion. `plate-arrived` la rend visible au pixel où le tirage
+   s'arrête, sans transition — l'échange se fait sur une image, entre
+   deux objets superposés. Les prénoms, le compte à rebours et l'invite
+   à défiler gardent leur cascade : c'est justement elle qui se referme
+   autour de la photographie pendant qu'elle vole. */
+html.is-gate .hero-plate {
+  opacity: 0 !important;
+  /* transform:none, PAS scale(1.05).
+     getBoundingClientRect() rend le rectangle VISUEL, transformations
+     comprises : mesurée sous scale(1.05), la plaque annonçait
+     409×508 au lieu de 390×484, et le tirage allait donc se poser 5 %
+     trop grand et 10 px trop haut à gauche. La plaque est invisible
+     pendant la porte — son échelle d'entrée n'a rien à y faire. */
+  transform: none !important;
+  transition: none !important;
+}
+html.plate-arrived .hero-plate {
+  opacity: 1 !important;
+  transform: none !important;
+  transition: none !important;
+}
+
 html.js-anim .hero-plate   { --d: 0s; }
 html.js-anim .hero-name    { --d: .34s; }
 html.js-anim .hero-amp     { --d: .62s; }
@@ -1414,6 +1845,28 @@ html.js-anim .scroll-cue   { --d: 1.15s; }
 
 @media (prefers-reduced-motion: reduce) {
   html:not(.lenis) { scroll-behavior: auto; }
+
+  /* La porte : plus de caméra, plus de rabat, plus de cire qui vole.
+     La photographie reste — c'est une image, pas un mouvement — et
+     l'on sort par un fondu court du voile seul.
+     Note : l'ancienne version faisait disparaître #overlay lui-même en
+     opacité, y compris sous cette préférence. Ce n'est plus possible :
+     une opacité sur l'ancêtre aplatirait la scène 3D. */
+  .env-cam { perspective: none; }
+  #overlay.is-open .overlay-hint,
+  #overlay.is-open .env-press,
+  #overlay.is-open .env-stage,
+  #overlay.is-open .env-flap,
+  #overlay.is-open .env-glow,
+  #overlay.is-open .env-seal--l,
+  #overlay.is-open .env-seal--r,
+  #overlay.is-open .env-print,
+  #overlay.is-open .env-sheet,
+  #overlay.is-open .env-flap-back,
+  #overlay.is-open .env-body,
+  #overlay.is-open .env-flap-face { animation: none !important; }
+  .env-print { opacity: 1; }
+  #overlay.is-open .env-veil { animation: env-veil .22s linear both; }
   .overlay-hint span,
   .scroll-cue .scroll-line,
   .music-toggle.is-playing .eq i,
