@@ -31,12 +31,14 @@ const COLLAGE = {
 };
 
 const SOURCES = [
-  /* La photographie d'ouverture. Elle sert quatre fois — le hero, le
-     tirage qui sort de l'enveloppe, la galerie et l'og:image — et c'est
+  /* La photographie d'ouverture. Elle sert trois fois — le hero, le
+     tirage qui sort de l'enveloppe et l'og:image — et c'est
      voulu : le tirage et le hero DOIVENT être le même fichier, sinon la
      transition n'est plus un objet qui se pose mais une image qui en
-     remplace une autre. photo-3.jpg, l'ancienne, reste au dépôt. */
+     remplace une autre. Elle ne reparaît donc pas dans la galerie :
+     photo-3.jpg, le regard, y tient sa place. */
   { src: 'assets/photos/photo-5.jpg', name: 'couple-embrace', widths: [480, 640, 800] },
+  { src: 'assets/photos/photo-3.jpg', name: 'couple-gaze',    widths: [480, 640, 800] },
   { src: 'assets/photos/photo-2.jpg', name: 'couple-dusk',    widths: [480, 640, 800] },
   { src: 'assets/photos/photo-4.jpg', name: 'couple-walking', widths: [480, 640, 800] },
   { src: 'assets/mimosa/mimosa.jpg',  name: 'venue',          widths: [640, 960, 1440, 1916] },
