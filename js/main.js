@@ -292,6 +292,13 @@
       .filter((el) => !el.closest('#hero'));
     if (!items.length) return;
 
+    /* Le téléphone n'est pas un petit bureau : l'écran est court, le
+       doigt lance la page, et la même révélation y passe inaperçue.
+       Trois réglages changent donc de valeur sous 54rem — le pas de
+       l'escalier, le seuil du « trop grand », et le moment du départ.
+       Les durées, elles, s'allongent côté CSS. */
+    const narrow = matchMedia('(max-width: 54rem)').matches;
+
     /* Le décalage est pris sur l'ordre du DOM chez le parent, PAS sur
        l'ordre d'arrivée dans le lot de l'observateur : les lots ne sont
        pas déterministes, donc le même escalier changeait d'un
@@ -299,7 +306,7 @@
     for (const el of items) {
       const sibs = [...el.parentElement.children].filter((c) => c.classList.contains('reveal'));
       const i = Math.max(0, sibs.indexOf(el));
-      el.style.setProperty('--rd', Math.min(i, 4) * 65 + 'ms');
+      el.style.setProperty('--rd', Math.min(i, 4) * (narrow ? 95 : 65) + 'ms');
     }
 
     const release = (el) => { el.style.willChange = 'auto'; };
@@ -310,10 +317,15 @@
         const el = e.target;
         obs.unobserve(el);
 
-        /* Plus grand que ~60 % de l'écran : il ne glissera pas, il se
-           posera. Mesuré ici plutôt qu'écrit à la main, pour que ça
-           reste vrai à toutes les largeurs. */
-        if (e.boundingClientRect.height > innerHeight * 0.6) el.classList.add('is-big');
+        /* Plus grand qu'une bonne part de l'écran : il ne glissera pas,
+           il se posera. Mesuré ici plutôt qu'écrit à la main, pour que
+           ça reste vrai à toutes les largeurs.
+           La part n'est pas la même partout : sur un téléphone tout
+           s'empile, et presque chaque bloc dépassait 60 % de la hauteur
+           — donc presque tout tombait dans le cas « posé », ce déplacement
+           de 8 px qu'on ne voit pas. À 85 %, seuls les vrais pavés y
+           passent, et le reste retrouve sa glissade. */
+        if (e.boundingClientRect.height > innerHeight * (narrow ? 0.85 : 0.6)) el.classList.add('is-big');
 
         el.style.willChange = 'opacity, transform';
         // une image de battement : l'état de départ ET la promotion
@@ -326,11 +338,16 @@
         setTimeout(finish, 2200);
       }
     }, {
-      /* Marge basse POSITIVE : la révélation part juste AVANT que
-         l'élément n'entre, donc il arrive déjà en mouvement au lieu de
-         démarrer sous les yeux du lecteur. C'était l'inverse (-10 %),
-         et c'est ce qui donnait l'impression que ça accrochait. */
-      rootMargin: '0px 0px 8% 0px',
+      /* Sur grand écran, marge basse POSITIVE : la révélation part
+         juste AVANT que l'élément n'entre, donc il arrive déjà en
+         mouvement au lieu de démarrer sous les yeux du lecteur.
+         C'était l'inverse (-10 %), et c'est ce qui donnait
+         l'impression que ça accrochait.
+         Sur téléphone, l'avance se retourne contre nous : l'écran est
+         court et le défilement part au lancer, si bien que le geste
+         était fini avant d'avoir croisé un regard. On attend donc que
+         l'élément soit franchement entré. */
+      rootMargin: narrow ? '0px 0px -6% 0px' : '0px 0px 8% 0px',
       threshold: 0,
     });
 

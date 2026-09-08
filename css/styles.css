@@ -1777,6 +1777,31 @@ html.js-anim [data-split].is-in {
   transition: --wipe 1.15s var(--ease-out) var(--rd, 0s);
 }
 
+/* Sur téléphone, la même révélation passait inaperçue : l'écran est
+   court, le pouce lance la page, et le geste était consommé avant
+   d'être vu. On ne change pas le geste — on lui laisse le temps de se
+   faire remarquer, et un peu plus de chemin à parcourir pour qu'il y
+   ait quelque chose à voir. Le départ, lui, est retardé côté JS. */
+@media (max-width: 54rem) {
+  html.js-anim .reveal { transform: translate3d(0, 24px, 0); }
+  html.js-anim .reveal.is-in {
+    transition:
+      opacity .92s var(--ease-out) var(--rd, 0s),
+      transform 1.02s var(--ease-out) var(--rd, 0s);
+  }
+
+  html.js-anim .reveal.is-big { transform: translate3d(0, 14px, 0); }
+  html.js-anim .reveal.is-big.is-in {
+    transition:
+      opacity .74s var(--ease-out) var(--rd, 0s),
+      transform .82s var(--ease-out) var(--rd, 0s);
+  }
+
+  html.js-anim [data-split].is-in {
+    transition: --wipe 1.5s var(--ease-out) var(--rd, 0s);
+  }
+}
+
 html.js-anim .hero-name,
 html.js-anim .hero-amp,
 html.js-anim .hero-plate,
