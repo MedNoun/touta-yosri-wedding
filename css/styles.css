@@ -823,10 +823,27 @@ main { position: relative; }
   width: 100%;
 }
 
+/* Colonnes AU CONTENU, et le groupe centré — pas `1fr auto 1fr`.
+   Avec des colonnes égales, la photographie tombait sur l'axe et les
+   prénoms venaient s'y appuyer de part et d'autre : « Yosri » étant
+   plus large que « Eya » (1,66 em contre 1,22 em), l'encre du bloc
+   débordait à droite de la moitié de l'écart — une trentaine de pixels
+   à 1440. La photographie était au centre, le titre ne l'était pas, et
+   c'est le titre qui se lit.
+   Ici les trois colonnes font la largeur de ce qu'elles portent et
+   `justify-content` centre l'ensemble : l'encre est sur l'axe à
+   n'importe quelle fonte, sans mesure écrite à la main. La
+   photographie s'en écarte d'autant — invisible sur une image, et
+   l'enveloppe la retrouve de toute façon au `getBoundingClientRect()`.
+   Effet de bord utile : les prénoms ne peuvent plus déborder de leur
+   colonne. En `1fr`, la piste ne descendait pas sous le min-content de
+   « Yosri » ; vers 860 px de large il s'en fallait de 4 px que les
+   colonnes cessent d'être égales et que tout le bloc se décale. */
 .hero-stage {
   position: relative;
   display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  grid-template-columns: auto auto auto;
+  justify-content: center;
   align-items: center;
   justify-items: center;
   column-gap: clamp(.5rem, 2.5vw, 2rem);
@@ -861,11 +878,17 @@ main { position: relative; }
 .hero-plate picture { width: 100%; height: 100%; }
 .hero-plate img { width: 100%; height: 100%; object-fit: cover; object-position: center 34%; }
 
+/* L'esperluette se pose sur la PHOTOGRAPHIE, pas sur l'axe de la page.
+   En `position: absolute; left: 50%` elle se réglait sur l'étage ;
+   maintenant que le bloc est centré sur son encre, l'étage et la
+   photographie ne partagent plus leur milieu, et elle serait tombée à
+   côté de la plaque. Posée dans la même cellule que celle-ci, elle en
+   suit le centre quoi qu'il arrive. */
 .hero-amp {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translate(-50%, -48%);
+  grid-area: 1 / 2;
+  justify-self: center;
+  align-self: start;
+  transform: translateY(-48%);
   z-index: 2;
   font-family: var(--font-display);
   font-style: italic;
@@ -1055,16 +1078,17 @@ main { position: relative; }
     font-size: min(23vw, 5.8rem);
   }
   .hero-name {
-    /* Deux colonnes égales, comme le `1fr auto 1fr` du bureau.
-       Sans cela les deux prénoms sont de simples éléments flex posés
-       bout à bout : le groupe est bien centré, mais l'esperluette —
-       qui est le pivot optique de tout le bloc — se retrouve décalée
-       de la moitié de l'écart de largeur entre « Yosri » (148,5 px) et
-       « Eya » (109,2 px), soit près de 20 px à gauche du centre.
-       À largeurs égales, elle retombe sur l'axe, et les prénoms
-       viennent s'appuyer contre elle grâce aux `text-align` déjà
-       posés sur --l et --r. */
-    flex: 1 1 0;
+    /* Chaque prénom à sa largeur, et le groupe centré — comme les
+       colonnes au contenu du bureau.
+       C'était `flex: 1 1 0` : à colonnes égales l'esperluette tombait
+       sur l'axe de l'écran, et les prénoms s'appuyaient contre elle.
+       Mais « Yosri » (148,5 px) est plus large que « Eya » (109,2 px),
+       donc l'encre débordait à droite de la moitié de l'écart — une
+       vingtaine de pixels, soit 5 % d'un écran de 390. Sur un
+       téléphone il n'y a rien d'autre que ce titre en travers de la
+       photographie : c'est son encre qui doit être sur l'axe, pas son
+       esperluette, qui se contente d'être au milieu des deux mots. */
+    flex: 0 0 auto;
     min-width: 0;
     white-space: nowrap;
     font-size: 1em;
@@ -1916,7 +1940,12 @@ html.js-anim .scroll-cue   { --d: 1.15s; }
   html.js-anim .hero-name,
   html.js-anim .hero .reveal { transform: none !important; }
   .sky-layer { will-change: auto; }
+  /* PAS `.hero-amp` ici : son `transform` n'est pas une entrée en
+     scène, c'est ce qui la pose sur le bord haut de la photographie.
+     Le remettre à zéro la faisait redescendre à cheval sur la plaque —
+     et, du temps du `position: absolute`, glisser aussi vers la droite
+     de la moitié de sa largeur. Son animation à elle est le `scale`,
+     déjà neutralisé plus haut. */
   html.js-anim .reveal,
-  html.js-anim .hero-name,
-  html.js-anim .hero-amp { opacity: 1 !important; transform: none !important; }
+  html.js-anim .hero-name { opacity: 1 !important; transform: none !important; }
 }
